@@ -750,7 +750,7 @@ export const STATS_CONFIG = {
   RATING_RANGE: { min: 0, max: 3000 },
   K_FACTOR: 32,
   PERCENTILE_BUCKETS: [10, 25, 50, 75, 90, 95, 99],
-  MIN_GAMES_FOR_RANKING: 10,
+  MIN_GAMES_FOR_RANKING: 5, // Minimum games played to qualify for ranking
   TRACKED_STATS: [
     'throws',
     'hits',
