@@ -155,10 +155,10 @@ export const MATCH_CONFIG = {
   DEFAULT_SCORE_LIMIT: 21,
   DEFAULT_TIME_LIMIT: null, // No time limit by default
 
-  // ShortID configuration
-  SHORT_ID_LENGTH: 8,
-  SHORT_ID_CHARSET: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-  SHORT_ID_PATTERN: /^[A-Z0-9]{8}$/,
+  // ShortID configuration (Letter-6digits format)
+  SHORT_ID_FORMAT: 'L-NNNNNN', // L = Letter, N = Number
+  SHORT_ID_PATTERN: /^[A-Z]-\d{6}$/,
+  SHORT_ID_LETTERS: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
 
   // Match expiry
   ACTIVE_MATCH_EXPIRY: 24 * 60 * 60 * 1000, // 24 hours for active matches

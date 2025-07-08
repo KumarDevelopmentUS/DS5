@@ -171,9 +171,9 @@ export const navigationHelpers = {
 
 // Route validation
 export const routeValidation = {
-  // Validate match ShortID format (8 uppercase alphanumeric)
+  // Validate match ShortID format (Letter-6digits: A-123456)
   isValidMatchShortId: (shortId: string): boolean => {
-    return /^[A-Z0-9]{8}$/.test(shortId);
+    return /^[A-Z]-\d{6}$/.test(shortId);
   },
 
   // Validate UUID format (for internal use)
