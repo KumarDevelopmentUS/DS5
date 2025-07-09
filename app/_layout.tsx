@@ -8,10 +8,12 @@ import { OfflineProvider } from '../contexts/OfflineContext';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 // Sentry imports
 import * as Sentry from '@sentry/react-native';
 import { ERROR_MONITORING_CONFIG } from '../constants/config';
+import { COLORS } from '../constants/theme';
 
 // Initialize Sentry before anything else
 if (ERROR_MONITORING_CONFIG.ENABLED || ERROR_MONITORING_CONFIG.ENABLE_IN_DEV) {
@@ -52,6 +54,21 @@ if (ERROR_MONITORING_CONFIG.ENABLED || ERROR_MONITORING_CONFIG.ENABLE_IN_DEV) {
         }
       }
 
+      // Filter out common React Native development warnings
+      if (ERROR_MONITORING_CONFIG.ENVIRONMENT === 'development') {
+        const message = event.message || '';
+        const ignoredMessages = [
+          'Warning:',
+          'VirtualizedList:',
+          'componentWillReceiveProps',
+          'componentWillMount',
+        ];
+
+        if (ignoredMessages.some((ignored) => message.includes(ignored))) {
+          return null;
+        }
+      }
+
       return event;
     },
 
@@ -60,6 +77,13 @@ if (ERROR_MONITORING_CONFIG.ENABLED || ERROR_MONITORING_CONFIG.ENABLE_IN_DEV) {
       tags: {
         platform: 'react-native',
         expo: true,
+        environment: ERROR_MONITORING_CONFIG.ENVIRONMENT,
+      },
+      contexts: {
+        app: {
+          name: 'DieStats',
+          version: ERROR_MONITORING_CONFIG.RELEASE,
+        },
       },
     },
   });
@@ -68,14 +92,67 @@ if (ERROR_MONITORING_CONFIG.ENABLED || ERROR_MONITORING_CONFIG.ENABLE_IN_DEV) {
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+// Configure React Query with optimized defaults
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 2,
+      retry: (failureCount, error: any) => {
+        // Don't retry on authentication errors
+        if (error?.status === 401 || error?.status === 403) {
+          return false;
+        }
+        // Don't retry on client errors (400-499)
+        if (error?.status >= 400 && error?.status < 500) {
+          return false;
+        }
+        // Retry up to 2 times for other errors
+        return failureCount < 2;
+      },
       staleTime: 5 * 60 * 1000, // 5 minutes
+      cacheTime: 10 * 60 * 1000, // 10 minutes
+      refetchOnWindowFocus: false, // Disable for mobile
+      refetchOnReconnect: true, // Re-fetch when network reconnects
+    },
+    mutations: {
+      retry: (failureCount, error: any) => {
+        // Don't retry mutations on client errors
+        if (error?.status >= 400 && error?.status < 500) {
+          return false;
+        }
+        // Retry once for server errors
+        return failureCount < 1;
+      },
     },
   },
 });
+
+// Splash Screen Fallback Component
+const SplashScreenFallback: React.FC = () => {
+  return (
+    <View style={styles.splashContainer}>
+      <ActivityIndicator
+        size="large"
+        color={COLORS.light.primary}
+        testID="splash-loading-indicator"
+      />
+    </View>
+  );
+};
+
+// Error Boundary Fallback
+const ErrorFallback: React.FC<{ error: Error }> = ({ error }) => {
+  useEffect(() => {
+    // Log the error to Sentry
+    Sentry.captureException(error);
+  }, [error]);
+
+  return (
+    <View style={styles.errorContainer}>
+      <ActivityIndicator size="large" color={COLORS.light.primary} />
+      {/* In production, you might want to show a more user-friendly error message */}
+    </View>
+  );
+};
 
 function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -87,12 +164,35 @@ function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
+      // Add a small delay to ensure smooth transition
+      const timer = setTimeout(() => {
+        SplashScreen.hideAsync();
+      }, 100);
+
+      return () => clearTimeout(timer);
     }
   }, [fontsLoaded, fontError]);
 
+  // Enhanced error handling for font loading
+  useEffect(() => {
+    if (fontError) {
+      // Log font loading error to Sentry
+      Sentry.captureException(new Error('Font loading failed'), {
+        tags: { category: 'font_loading' },
+        extra: { fontError },
+      });
+    }
+  }, [fontError]);
+
+  // Show loading screen while fonts are loading
   if (!fontsLoaded && !fontError) {
-    return null;
+    return <SplashScreenFallback />;
+  }
+
+  // Show error fallback if font loading failed (but continue with system fonts)
+  if (fontError) {
+    console.warn('Font loading failed, using system fonts:', fontError);
+    // Continue rendering the app with system fonts
   }
 
   return (
@@ -102,7 +202,15 @@ function RootLayout() {
           <OfflineProvider>
             <NotificationProvider>
               <MatchProvider>
-                <Stack screenOptions={{ headerShown: false }} />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    // Global screen options
+                    animation: 'slide_from_right', // Smooth transitions
+                    gestureEnabled: true, // Enable swipe back gesture
+                    contentStyle: { backgroundColor: 'transparent' }, // Prevent flash
+                  }}
+                />
               </MatchProvider>
             </NotificationProvider>
           </OfflineProvider>
@@ -112,8 +220,33 @@ function RootLayout() {
   );
 }
 
+// Enhanced error boundary with Sentry integration
+const RootLayoutWithErrorBoundary = () => {
+  try {
+    return <RootLayout />;
+  } catch (error) {
+    return <ErrorFallback error={error as Error} />;
+  }
+};
+
+// Styles
+const styles = StyleSheet.create({
+  splashContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.light.background,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.light.background,
+  },
+});
+
 // Wrap the root layout with Sentry for automatic error catching and performance monitoring
 export default ERROR_MONITORING_CONFIG.ENABLED ||
 ERROR_MONITORING_CONFIG.ENABLE_IN_DEV
-  ? Sentry.wrap(RootLayout)
-  : RootLayout;
+  ? Sentry.wrap(RootLayoutWithErrorBoundary)
+  : RootLayoutWithErrorBoundary;
