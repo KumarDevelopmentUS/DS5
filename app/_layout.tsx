@@ -38,7 +38,7 @@ if (ERROR_MONITORING_CONFIG.ENABLED || ERROR_MONITORING_CONFIG.ENABLE_IN_DEV) {
     // Integrations
     integrations: [
       // Expo Router integration
-      new Sentry.ReactNavigationInstrumentation(),
+      Sentry.reactNavigationIntegration(),
     ],
 
     // Filter out noisy errors
@@ -109,7 +109,7 @@ const queryClient = new QueryClient({
         return failureCount < 2;
       },
       staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 10 * 60 * 1000, // 10 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
       refetchOnWindowFocus: false, // Disable for mobile
       refetchOnReconnect: true, // Re-fetch when network reconnects
     },
