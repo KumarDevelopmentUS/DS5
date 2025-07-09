@@ -262,6 +262,37 @@ export const SECURITY_CONFIG = {
   MAX_REPORT_REASONS_LENGTH: 500,
 };
 
+// Error Monitoring Configuration (Sentry)
+export const ERROR_MONITORING_CONFIG = {
+  // Sentry configuration
+  SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
+
+  // Error reporting settings
+  ENABLED: process.env.EXPO_PUBLIC_ENVIRONMENT === 'production',
+  ENABLE_IN_DEV: false, // Set to true if you want Sentry in development
+
+  // Sample rates
+  TRACES_SAMPLE_RATE:
+    process.env.EXPO_PUBLIC_ENVIRONMENT === 'production' ? 0.1 : 1.0,
+  PROFILES_SAMPLE_RATE:
+    process.env.EXPO_PUBLIC_ENVIRONMENT === 'production' ? 0.1 : 1.0,
+
+  // Session configuration
+  AUTO_SESSION_TRACKING: true,
+  ENABLE_NATIVE_CRASHES: true,
+
+  // Performance monitoring
+  ENABLE_AUTO_PERFORMANCE_TRACING: true,
+  ENABLE_USER_INTERACTION_TRACING: true,
+
+  // Debug settings
+  DEBUG: process.env.EXPO_PUBLIC_ENVIRONMENT !== 'production',
+
+  // Additional context
+  ENVIRONMENT: process.env.EXPO_PUBLIC_ENVIRONMENT || 'development',
+  RELEASE: process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0',
+} as const;
+
 // Development Configuration
 export const DEV_CONFIG = {
   // Development tools
@@ -313,4 +344,5 @@ export const CONFIG = {
   NOTIFICATION: NOTIFICATION_CONFIG,
   SECURITY: SECURITY_CONFIG,
   DEV: DEV_CONFIG,
+  ERROR_MONITORING: ERROR_MONITORING_CONFIG, // Add this line
 } as const;

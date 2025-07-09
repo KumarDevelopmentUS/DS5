@@ -50,6 +50,14 @@
         {
           "origin": "https://ds5-sports-tracker.com"
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "kumar-development"
+        }
       ]
     ],
     "experiments": {
