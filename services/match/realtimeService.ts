@@ -260,8 +260,7 @@ class RealtimeServiceClass {
         throw new Error('Not subscribed to match channel');
       }
 
-      // channel.send() returns a status string, not an object with an error property.
-      const status = await channel.send({
+      await channel.send({
         type: 'broadcast',
         event: 'play',
         payload: {
@@ -271,14 +270,6 @@ class RealtimeServiceClass {
           timestamp: play.timestamp.toISOString(),
         },
       });
-
-      // Check if the status is not 'ok'.
-      if (status !== 'ok') {
-        // You can create a new error object to be handled by your error handler.
-        throw new Error(
-          `Failed to broadcast play event with status: ${status}`
-        );
-      }
 
       return true;
     } catch (error) {
@@ -308,19 +299,11 @@ class RealtimeServiceClass {
         throw new Error('Not subscribed to match channel');
       }
 
-      // 1. Get the status string from channel.send()
-      const status = await channel.send({
+      await channel.send({
         type: 'broadcast',
         event: 'score_update',
         payload: score,
       });
-
-      // 2. Check if the status is not 'ok'
-      if (status !== 'ok') {
-        throw new Error(
-          `Failed to broadcast score update with status: ${status}`
-        );
-      }
 
       return true;
     } catch (error) {

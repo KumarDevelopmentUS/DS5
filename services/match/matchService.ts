@@ -1,6 +1,11 @@
 // services/match/matchService.ts
-import { MATCH_SETTINGS } from '../../constants/game';
-import { ApiResponse, PaginationParams } from '../../types/api';
+import {
+  MATCH_SETTINGS,
+  PLAY_TYPES,
+  SCORING,
+  SPECIAL_MECHANICS,
+} from '../../constants/game';
+import { ApiResponse, PaginationParams, ErrorCodes } from '../../types/api';
 import { MATCH_CONFIG } from '../../constants/config';
 
 import {
@@ -18,8 +23,20 @@ import {
   PlayerMatchStats,
   SearchFilters,
   TeamScore,
+  MatchFormData,
 } from '../../types/models';
-import { isOnFire } from '../../utils/calculations';
+import {
+  isOnFire,
+  calculateMVPScore,
+  calculateMVP,
+  calculateWinRate,
+  calculateHitRate,
+  calculateCatchRate,
+  calculateAverageScore,
+  calculateEfficiency,
+  isComeback,
+  calculatePerformanceRating,
+} from '../../utils/calculations';
 import { createErrorHandler } from '../../utils/errors';
 import { cacheDataWithTTL, getCachedDataWithTTL } from '../../utils/storage';
 import { sanitizeInput, validateMatchTitle } from '../../utils/validation';
@@ -122,7 +139,7 @@ export class MatchService {
         return {
           data: null,
           error: {
-            code: 'VALIDATION_FAILED',
+            code: ErrorCodes.VALIDATION_FAILED,
             message: titleValidation.error!,
           },
           success: false,
@@ -233,7 +250,7 @@ export class MatchService {
         return {
           data: null,
           error: {
-            code: 'MATCH_NOT_ACTIVE',
+            code: ErrorCodes.VALIDATION_FAILED,
             message: 'Cannot submit plays to an inactive match',
           },
           success: false,
@@ -335,7 +352,7 @@ export class MatchService {
   static async getMatchHistory(
     userId: string,
     filters?: MatchHistoryFilters,
-    pagination?: { page?: number; limit?: number }
+    pagination?: PaginationParams
   ): Promise<MatchServiceResponse<PaginatedResponse<Match>>> {
     try {
       // Check cache first
@@ -358,23 +375,23 @@ export class MatchService {
         .from('match_participants')
         .select(
           `
-         match_id,
-         matches!inner (
-           id,
-           room_code,
-           title,
-           description,
-           creator_id,
-           status,
-           game_type,
-           settings,
-           location,
-           started_at,
-           ended_at,
-           created_at,
-           is_public
-         )
-       `,
+          match_id,
+          matches!inner (
+            id,
+            room_code,
+            title,
+            description,
+            creator_id,
+            status,
+            game_type,
+            settings,
+            location,
+            started_at,
+            ended_at,
+            created_at,
+            is_public
+          )
+        `,
           { count: 'exact' }
         )
         .eq('user_id', userId);
@@ -423,7 +440,7 @@ export class MatchService {
 
       // Apply pagination
       const page = pagination?.page || 1;
-      const limit = pagination?.limit || 20;
+      const limit = pagination?.pageSize || 20;
       const from = (page - 1) * limit;
       const to = from + limit - 1;
 
@@ -587,7 +604,7 @@ export class MatchService {
         return {
           data: null,
           error: {
-            code: 'MATCH_NOT_FOUND',
+            code: ErrorCodes.NOT_FOUND,
             message: 'Invalid room code',
           },
           success: false,
@@ -600,7 +617,7 @@ export class MatchService {
         return {
           data: null,
           error: {
-            code: 'MATCH_NOT_JOINABLE',
+            code: ErrorCodes.VALIDATION_FAILED,
             message: 'This match is no longer accepting players',
           },
           success: false,
@@ -761,6 +778,583 @@ export class MatchService {
     }
   }
 
+  /**
+   * Gets player match statistics
+   *
+   * @param matchId - Match ID
+   * @param playerId - Player ID
+   * @returns Player statistics for the match
+   */
+  static async getPlayerMatchStats(
+    matchId: string,
+    playerId: string
+  ): Promise<MatchServiceResponse<PlayerMatchStats>> {
+    try {
+      const { data: events, error } = await supabase
+        .from('match_events')
+        .select('*')
+        .eq('match_id', matchId)
+        .eq('player_id', playerId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Initialize stats
+      const stats: PlayerMatchStats = {
+        throws: 0,
+        hits: 0,
+        catches: 0,
+        catchAttempts: 0,
+        score: 0,
+        sinks: 0,
+        goals: 0,
+        dinks: 0,
+        knickers: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        onFireCount: 0,
+        blunders: 0,
+        fifaAttempts: 0,
+        fifaSuccess: 0,
+      };
+
+      // Process events
+      let currentStreak = 0;
+      events?.forEach((event: any) => {
+        const eventData = event.event_data as EventData;
+
+        // Count throws
+        if (
+          [
+            'table',
+            'line',
+            'hit',
+            'knicker',
+            'goal',
+            'dink',
+            'sink',
+            'short',
+            'long',
+            'side',
+            'height',
+          ].includes(event.event_type)
+        ) {
+          stats.throws++;
+        }
+
+        // Count hits
+        if (
+          ['hit', 'knicker', 'goal', 'dink', 'sink'].includes(event.event_type)
+        ) {
+          stats.hits++;
+          currentStreak++;
+          stats.longestStreak = Math.max(stats.longestStreak, currentStreak);
+        } else if (
+          ['short', 'long', 'side', 'height'].includes(event.event_type)
+        ) {
+          currentStreak = 0;
+        }
+
+        // Count specific plays
+        switch (event.event_type) {
+          case PlayType.SINK:
+            stats.sinks++;
+            break;
+          case PlayType.GOAL:
+            stats.goals++;
+            break;
+          case PlayType.DINK:
+            stats.dinks++;
+            break;
+          case PlayType.KNICKER:
+            stats.knickers++;
+            break;
+          case PlayType.CATCH:
+          case PlayType.CATCH_PLUS_AURA:
+            stats.catches++;
+            stats.catchAttempts++;
+            break;
+          case PlayType.DROP:
+          case PlayType.MISS:
+          case PlayType.TWO_HANDS:
+          case PlayType.BODY:
+            stats.catchAttempts++;
+            stats.blunders++;
+            break;
+        }
+
+        // Count score
+        if (eventData.points) {
+          stats.score += eventData.points;
+        }
+
+        // Count on fire
+        if (eventData.onFire) {
+          stats.onFireCount++;
+        }
+
+        // Count FIFA
+        if (eventData.fifa) {
+          stats.fifaAttempts++;
+          if (event.event_type === PlayType.FIFA_SAVE) {
+            stats.fifaSuccess++;
+          }
+        }
+      });
+
+      stats.currentStreak = currentStreak;
+
+      // Apply calculation functions from utils/calculations.ts
+      const performanceMetrics = {
+        hitRate: calculateHitRate(stats.hits, stats.throws),
+        catchRate: calculateCatchRate(stats.catches, stats.catchAttempts),
+        efficiency: calculateEfficiency(stats.score, stats.throws),
+        mvpScore: calculateMVPScore(stats),
+        performanceRating: calculatePerformanceRating(stats),
+      };
+
+      return {
+        data: {
+          ...stats,
+          ...performanceMetrics,
+        },
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'getPlayerMatchStats',
+        matchId,
+        playerId,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Gets all events for a match
+   *
+   * @param matchId - Match ID
+   * @param filters - Optional filters
+   * @returns Array of match events
+   */
+  static async getMatchEvents(
+    matchId: string,
+    filters?: {
+      team?: string;
+      playerId?: string;
+      eventTypes?: PlayType[];
+      limit?: number;
+    }
+  ): Promise<MatchServiceResponse<MatchEvent[]>> {
+    try {
+      let query = supabase
+        .from('match_events')
+        .select('*')
+        .eq('match_id', matchId)
+        .order('created_at', { ascending: true });
+
+      // Apply filters
+      if (filters?.team) {
+        query = query.eq('team', filters.team);
+      }
+      if (filters?.playerId) {
+        query = query.eq('player_id', filters.playerId);
+      }
+      if (filters?.eventTypes?.length) {
+        query = query.in('event_type', filters.eventTypes);
+      }
+      if (filters?.limit) {
+        query = query.limit(filters.limit);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      const events: MatchEvent[] = (data || []).map((event: any) => ({
+        id: event.id,
+        matchId: event.match_id,
+        playerId: event.player_id,
+        eventType: event.event_type as PlayType,
+        eventData: event.event_data as EventData,
+        team: event.team,
+        timestamp: new Date(event.created_at),
+      }));
+
+      return {
+        data: events,
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'getMatchEvents',
+        matchId,
+        filters,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Deletes a match (creator only)
+   *
+   * @param matchId - Match ID
+   * @param userId - User ID requesting deletion
+   * @returns Success status
+   */
+  static async deleteMatch(
+    matchId: string,
+    userId: string
+  ): Promise<MatchServiceResponse<null>> {
+    try {
+      // Verify user is creator
+      const { data: match, error: matchError } = await supabase
+        .from('matches')
+        .select('creator_id, status')
+        .eq('id', matchId)
+        .single();
+
+      if (matchError || !match) {
+        throw new Error('Match not found');
+      }
+
+      if (match.creator_id !== userId) {
+        return {
+          data: null,
+          error: {
+            code: ErrorCodes.PERMISSION_DENIED,
+            message: 'Only the match creator can delete this match',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      if (match.status === 'active') {
+        return {
+          data: null,
+          error: {
+            code: ErrorCodes.VALIDATION_FAILED,
+            message: 'Cannot delete an active match',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // Delete match (cascade will handle related records)
+      const { error: deleteError } = await supabase
+        .from('matches')
+        .delete()
+        .eq('id', matchId);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      // Clear cache
+      await this.clearMatchCache(matchId);
+
+      return {
+        data: null,
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'deleteMatch',
+        matchId,
+        userId,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Updates match settings
+   *
+   * @param matchId - Match ID
+   * @param settings - New settings
+   * @param userId - User ID requesting update
+   * @returns Updated match or error
+   */
+  static async updateMatchSettings(
+    matchId: string,
+    settings: Partial<Match['settings']>,
+    userId: string
+  ): Promise<MatchServiceResponse<Match>> {
+    try {
+      // Verify user is creator
+      const { data: match, error: matchError } = await supabase
+        .from('matches')
+        .select('creator_id, settings, status')
+        .eq('id', matchId)
+        .single();
+
+      if (matchError || !match) {
+        throw new Error('Match not found');
+      }
+
+      if (match.creator_id !== userId) {
+        return {
+          data: null,
+          error: {
+            code: ErrorCodes.PERMISSION_DENIED,
+            message: 'Only the match creator can update settings',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      if (match.status !== 'pending') {
+        return {
+          data: null,
+          error: {
+            code: ErrorCodes.VALIDATION_FAILED,
+            message: 'Cannot update settings after match has started',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // Merge settings
+      const updatedSettings = {
+        ...(match.settings as any),
+        ...settings,
+      };
+
+      // Update match
+      const { data: updatedMatch, error: updateError } = await supabase
+        .from('matches')
+        .update({ settings: updatedSettings })
+        .eq('id', matchId)
+        .select()
+        .single();
+
+      if (updateError || !updatedMatch) {
+        throw updateError || new Error('Failed to update settings');
+      }
+
+      // Clear cache
+      await this.clearMatchCache(matchId);
+
+      return {
+        data: this.transformMatch(updatedMatch),
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'updateMatchSettings',
+        matchId,
+        settings,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Kicks a player from a match (creator only)
+   *
+   * @param matchId - Match ID
+   * @param playerIdToKick - Player ID to kick
+   * @param kickerId - User ID requesting the kick
+   * @returns Success status
+   */
+  static async kickPlayer(
+    matchId: string,
+    playerIdToKick: string,
+    kickerId: string
+  ): Promise<MatchServiceResponse<null>> {
+    try {
+      // Verify kicker is creator
+      const { data: match, error: matchError } = await supabase
+        .from('matches')
+        .select('creator_id, status')
+        .eq('id', matchId)
+        .single();
+
+      if (matchError || !match) {
+        throw new Error('Match not found');
+      }
+
+      if (match.creator_id !== kickerId) {
+        return {
+          data: null,
+          error: {
+            code: ErrorCodes.PERMISSION_DENIED,
+            message: 'Only the match creator can kick players',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      if (match.status !== 'pending') {
+        return {
+          data: null,
+          error: {
+            code: ErrorCodes.VALIDATION_FAILED,
+            message: 'Cannot kick players after match has started',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // Remove player
+      const { error: kickError } = await supabase
+        .from('match_participants')
+        .delete()
+        .eq('match_id', matchId)
+        .eq('user_id', playerIdToKick);
+
+      if (kickError) {
+        throw kickError;
+      }
+
+      // Clear cache
+      await this.clearMatchCache(matchId);
+
+      return {
+        data: null,
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'kickPlayer',
+        matchId,
+        playerIdToKick,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Changes a player's team
+   *
+   * @param matchId - Match ID
+   * @param playerId - Player ID
+   * @param newTeam - New team assignment
+   * @param requesterId - User ID requesting the change
+   * @returns Success status
+   */
+  static async changePlayerTeam(
+    matchId: string,
+    playerId: string,
+    newTeam: string,
+    requesterId: string
+  ): Promise<MatchServiceResponse<null>> {
+    try {
+      // Verify requester is creator or the player themselves
+      const { data: match, error: matchError } = await supabase
+        .from('matches')
+        .select('creator_id, status')
+        .eq('id', matchId)
+        .single();
+
+      if (matchError || !match) {
+        throw new Error('Match not found');
+      }
+
+      if (match.creator_id !== requesterId && playerId !== requesterId) {
+        return {
+          data: null,
+          error: {
+            code: ErrorCodes.PERMISSION_DENIED,
+            message: 'Only the match creator or the player can change teams',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      if (match.status !== 'pending') {
+        return {
+          data: null,
+          error: {
+            code: ErrorCodes.VALIDATION_FAILED,
+            message: 'Cannot change teams after match has started',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // Update team
+      const { error: updateError } = await supabase
+        .from('match_participants')
+        .update({ team: newTeam })
+        .eq('match_id', matchId)
+        .eq('user_id', playerId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Clear cache
+      await this.clearMatchCache(matchId);
+
+      return {
+        data: null,
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'changePlayerTeam',
+        matchId,
+        playerId,
+        newTeam,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
   // ============================================
   // HELPER METHODS
   // ============================================
@@ -827,14 +1421,14 @@ export class MatchService {
       .from('match_participants')
       .select(
         `
-       *,
-       profiles:user_id (
-         id,
-         username,
-         nickname,
-         avatar_url
-       )
-     `
+        *,
+        profiles:user_id (
+          id,
+          username,
+          nickname,
+          avatar_url
+        )
+      `
       )
       .eq('match_id', matchId)
       .eq('is_active', true);
@@ -1005,9 +1599,9 @@ export class MatchService {
         .from('match_participants')
         .select(
           `
-         match_id,
-         matches!inner (*)
-       `
+          match_id,
+          matches!inner (*)
+        `
         )
         .eq('user_id', userId)
         .eq('is_active', true)
@@ -1062,7 +1656,6 @@ export class MatchService {
 export const matchService = MatchService;
 
 // Export individual methods for easier importing
-// Export individual methods for easier importing
 export const {
   createMatch,
   submitPlay,
@@ -1071,550 +1664,15 @@ export const {
   joinMatchByCode,
   updateMatchStatus,
   leaveMatch,
+  getPlayerMatchStats,
+  getMatchEvents,
+  deleteMatch,
+  updateMatchSettings,
+  kickPlayer,
+  changePlayerTeam,
   getActiveMatches,
   getMatchInvites,
 } = MatchService;
-
-// ============================================
-// ADDITIONAL UTILITY METHODS
-// ============================================
-
-/**
- * Gets match statistics for a specific player
- */
-export const getPlayerMatchStats = async (
-  matchId: string,
-  playerId: string
-): Promise<MatchServiceResponse<PlayerMatchStats>> => {
-  try {
-    const { data: events, error } = await supabase
-      .from('match_events')
-      .select('*')
-      .eq('match_id', matchId)
-      .eq('player_id', playerId);
-
-    if (error) {
-      throw error;
-    }
-
-    // Initialize stats
-    const stats: PlayerMatchStats = {
-      throws: 0,
-      hits: 0,
-      catches: 0,
-      catchAttempts: 0,
-      score: 0,
-      sinks: 0,
-      goals: 0,
-      dinks: 0,
-      knickers: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      onFireCount: 0,
-      blunders: 0,
-      fifaAttempts: 0,
-      fifaSuccess: 0,
-    };
-
-    // Process events
-    let currentStreak = 0;
-    events?.forEach((event: any) => {
-      const eventData = event.event_data as EventData;
-
-      // Count throws
-      if (
-        [
-          'table',
-          'line',
-          'hit',
-          'knicker',
-          'goal',
-          'dink',
-          'sink',
-          'short',
-          'long',
-          'side',
-          'height',
-        ].includes(event.event_type)
-      ) {
-        stats.throws++;
-      }
-
-      // Count hits
-      if (
-        ['hit', 'knicker', 'goal', 'dink', 'sink'].includes(event.event_type)
-      ) {
-        stats.hits++;
-        currentStreak++;
-        stats.longestStreak = Math.max(stats.longestStreak, currentStreak);
-      } else if (
-        ['short', 'long', 'side', 'height'].includes(event.event_type)
-      ) {
-        currentStreak = 0;
-      }
-
-      // Count specific plays
-      switch (event.event_type) {
-        case PlayType.SINK:
-          stats.sinks++;
-          break;
-        case PlayType.GOAL:
-          stats.goals++;
-          break;
-        case PlayType.DINK:
-          stats.dinks++;
-          break;
-        case PlayType.KNICKER:
-          stats.knickers++;
-          break;
-        case PlayType.CATCH:
-        case PlayType.CATCH_PLUS_AURA:
-          stats.catches++;
-          stats.catchAttempts++;
-          break;
-        case PlayType.DROP:
-        case PlayType.MISS:
-        case PlayType.TWO_HANDS:
-        case PlayType.BODY:
-          stats.catchAttempts++;
-          stats.blunders++;
-          break;
-      }
-
-      // Count score
-      if (eventData.points) {
-        stats.score += eventData.points;
-      }
-
-      // Count on fire
-      if (eventData.onFire) {
-        stats.onFireCount++;
-      }
-
-      // Count FIFA
-      if (eventData.fifa) {
-        stats.fifaAttempts++;
-        if (event.event_type === PlayType.FIFA_SAVE) {
-          stats.fifaSuccess++;
-        }
-      }
-    });
-
-    stats.currentStreak = currentStreak;
-
-    return {
-      data: stats,
-      error: null,
-      success: true,
-      timestamp: new Date().toISOString(),
-    };
-  } catch (error) {
-    const parsedError = handleError(error, {
-      action: 'getPlayerMatchStats',
-      matchId,
-      playerId,
-    });
-    return {
-      data: null,
-      error: parsedError,
-      success: false,
-      timestamp: new Date().toISOString(),
-    };
-  }
-};
-
-/**
- * Gets all events for a match
- */
-export const getMatchEvents = async (
-  matchId: string,
-  filters?: {
-    team?: string;
-    playerId?: string;
-    eventTypes?: PlayType[];
-    limit?: number;
-  }
-): Promise<MatchServiceResponse<MatchEvent[]>> => {
-  try {
-    let query = supabase
-      .from('match_events')
-      .select('*')
-      .eq('match_id', matchId)
-      .order('created_at', { ascending: true });
-
-    // Apply filters
-    if (filters?.team) {
-      query = query.eq('team', filters.team);
-    }
-    if (filters?.playerId) {
-      query = query.eq('player_id', filters.playerId);
-    }
-    if (filters?.eventTypes?.length) {
-      query = query.in('event_type', filters.eventTypes);
-    }
-    if (filters?.limit) {
-      query = query.limit(filters.limit);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw error;
-    }
-
-    const events: MatchEvent[] = (data || []).map((event: any) => ({
-      id: event.id,
-      matchId: event.match_id,
-      playerId: event.player_id,
-      eventType: event.event_type as PlayType,
-      eventData: event.event_data as EventData,
-      team: event.team,
-      timestamp: new Date(event.created_at),
-    }));
-
-    return {
-      data: events,
-      error: null,
-      success: true,
-      timestamp: new Date().toISOString(),
-    };
-  } catch (error) {
-    const parsedError = handleError(error, {
-      action: 'getMatchEvents',
-      matchId,
-      filters,
-    });
-    return {
-      data: null,
-      error: parsedError,
-      success: false,
-      timestamp: new Date().toISOString(),
-    };
-  }
-};
-
-/**
- * Deletes a match (creator only)
- */
-export const deleteMatch = async (
-  matchId: string,
-  userId: string
-): Promise<MatchServiceResponse<null>> => {
-  try {
-    // Verify user is creator
-    const { data: match, error: matchError } = await supabase
-      .from('matches')
-      .select('creator_id, status')
-      .eq('id', matchId)
-      .single();
-
-    if (matchError || !match) {
-      throw new Error('Match not found');
-    }
-
-    if (match.creator_id !== userId) {
-      return {
-        data: null,
-        error: {
-          code: 'PERMISSION_DENIED',
-          message: 'Only the match creator can delete this match',
-        },
-        success: false,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    if (match.status === 'active') {
-      return {
-        data: null,
-        error: {
-          code: 'MATCH_ACTIVE',
-          message: 'Cannot delete an active match',
-        },
-        success: false,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    // Delete match (cascade will handle related records)
-    const { error: deleteError } = await supabase
-      .from('matches')
-      .delete()
-      .eq('id', matchId);
-
-    if (deleteError) {
-      throw deleteError;
-    }
-
-    // Clear cache
-    await MatchService['clearMatchCache'](matchId);
-
-    return {
-      data: null,
-      error: null,
-      success: true,
-      timestamp: new Date().toISOString(),
-    };
-  } catch (error) {
-    const parsedError = handleError(error, {
-      action: 'deleteMatch',
-      matchId,
-      userId,
-    });
-    return {
-      data: null,
-      error: parsedError,
-      success: false,
-      timestamp: new Date().toISOString(),
-    };
-  }
-};
-
-/**
- * Updates match settings
- */
-export const updateMatchSettings = async (
-  matchId: string,
-  settings: Partial<Match['settings']>,
-  userId: string
-): Promise<MatchServiceResponse<Match>> => {
-  try {
-    // Verify user is creator
-    const { data: match, error: matchError } = await supabase
-      .from('matches')
-      .select('creator_id, settings, status')
-      .eq('id', matchId)
-      .single();
-
-    if (matchError || !match) {
-      throw new Error('Match not found');
-    }
-
-    if (match.creator_id !== userId) {
-      return {
-        data: null,
-        error: {
-          code: 'PERMISSION_DENIED',
-          message: 'Only the match creator can update settings',
-        },
-        success: false,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    if (match.status !== 'pending') {
-      return {
-        data: null,
-        error: {
-          code: 'MATCH_STARTED',
-          message: 'Cannot update settings after match has started',
-        },
-        success: false,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    // Merge settings
-    const updatedSettings = {
-      ...(match.settings as any),
-      ...settings,
-    };
-
-    // Update match
-    const { data: updatedMatch, error: updateError } = await supabase
-      .from('matches')
-      .update({ settings: updatedSettings })
-      .eq('id', matchId)
-      .select()
-      .single();
-
-    if (updateError || !updatedMatch) {
-      throw updateError || new Error('Failed to update settings');
-    }
-
-    // Clear cache
-    await MatchService['clearMatchCache'](matchId);
-
-    return {
-      data: MatchService['transformMatch'](updatedMatch),
-      error: null,
-      success: true,
-      timestamp: new Date().toISOString(),
-    };
-  } catch (error) {
-    const parsedError = handleError(error, {
-      action: 'updateMatchSettings',
-      matchId,
-      settings,
-    });
-    return {
-      data: null,
-      error: parsedError,
-      success: false,
-      timestamp: new Date().toISOString(),
-    };
-  }
-};
-
-/**
- * Kicks a player from a match (creator only)
- */
-export const kickPlayer = async (
-  matchId: string,
-  playerIdToKick: string,
-  kickerId: string
-): Promise<MatchServiceResponse<null>> => {
-  try {
-    // Verify kicker is creator
-    const { data: match, error: matchError } = await supabase
-      .from('matches')
-      .select('creator_id, status')
-      .eq('id', matchId)
-      .single();
-
-    if (matchError || !match) {
-      throw new Error('Match not found');
-    }
-
-    if (match.creator_id !== kickerId) {
-      return {
-        data: null,
-        error: {
-          code: 'PERMISSION_DENIED',
-          message: 'Only the match creator can kick players',
-        },
-        success: false,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    if (match.status !== 'pending') {
-      return {
-        data: null,
-        error: {
-          code: 'MATCH_STARTED',
-          message: 'Cannot kick players after match has started',
-        },
-        success: false,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    // Remove player
-    const { error: kickError } = await supabase
-      .from('match_participants')
-      .delete()
-      .eq('match_id', matchId)
-      .eq('user_id', playerIdToKick);
-
-    if (kickError) {
-      throw kickError;
-    }
-
-    // Clear cache
-    await MatchService['clearMatchCache'](matchId);
-
-    return {
-      data: null,
-      error: null,
-      success: true,
-      timestamp: new Date().toISOString(),
-    };
-  } catch (error) {
-    const parsedError = handleError(error, {
-      action: 'kickPlayer',
-      matchId,
-      playerIdToKick,
-    });
-    return {
-      data: null,
-      error: parsedError,
-      success: false,
-      timestamp: new Date().toISOString(),
-    };
-  }
-};
-
-/**
- * Changes a player's team
- */
-export const changePlayerTeam = async (
-  matchId: string,
-  playerId: string,
-  newTeam: string,
-  requesterId: string
-): Promise<MatchServiceResponse<null>> => {
-  try {
-    // Verify requester is creator
-    const { data: match, error: matchError } = await supabase
-      .from('matches')
-      .select('creator_id, status')
-      .eq('id', matchId)
-      .single();
-
-    if (matchError || !match) {
-      throw new Error('Match not found');
-    }
-
-    if (match.creator_id !== requesterId && playerId !== requesterId) {
-      return {
-        data: null,
-        error: {
-          code: 'PERMISSION_DENIED',
-          message: 'Only the match creator or the player can change teams',
-        },
-        success: false,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    if (match.status !== 'pending') {
-      return {
-        data: null,
-        error: {
-          code: 'MATCH_STARTED',
-          message: 'Cannot change teams after match has started',
-        },
-        success: false,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    // Update team
-    const { error: updateError } = await supabase
-      .from('match_participants')
-      .update({ team: newTeam })
-      .eq('match_id', matchId)
-      .eq('user_id', playerId);
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    // Clear cache
-    await MatchService['clearMatchCache'](matchId);
-
-    return {
-      data: null,
-      error: null,
-      success: true,
-      timestamp: new Date().toISOString(),
-    };
-  } catch (error) {
-    const parsedError = handleError(error, {
-      action: 'changePlayerTeam',
-      matchId,
-      playerId,
-      newTeam,
-    });
-    return {
-      data: null,
-      error: parsedError,
-      success: false,
-      timestamp: new Date().toISOString(),
-    };
-  }
-};
 
 // Default export
 export default MatchService;
