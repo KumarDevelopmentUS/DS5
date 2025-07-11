@@ -1,51 +1,38 @@
 import React from 'react';
 import { useRouter } from 'expo-router';
-import { AuthForm } from '../../components/forms/AuthForm';
+import { AuthForm, AuthFormData } from '../../components/forms/AuthForm';
 import { useAuth } from '../../hooks/auth/useAuth';
-import { AuthFormData } from '../../components/forms/AuthForm';
 import { Screen } from '../../components/Layout/Screen';
+import { SignUpData } from '../../services/auth/authService';
 
 /**
- * Login Screen
- *
- * This screen provides the user interface for existing users to sign in to their
- * DieStats account. It utilizes the reusable AuthForm component to handle the
- * form logic and presentation.
+ * Signup Screen
  */
-const LoginScreen = () => {
-  const { signIn, loading, error, clearError } = useAuth();
+const SignupScreen = () => {
+  const { signUp, loading, error, clearError } = useAuth();
   const router = useRouter();
 
-  /**
-   * Handles the submission of the login form.
-   *
-   * @param data - The login credentials (email and password).
-   */
-  const handleLogin = async (data: AuthFormData) => {
-    // Clear any previous errors before a new attempt
+  const handleSignup = async (data: AuthFormData) => {
     clearError();
-    const result = await signIn(data);
 
-    if (result.success) {
-      // Navigate to the main app screen on successful login
-      router.replace('../(tabs)/home');
+    // Type guard: Check if 'username' exists in the data object.
+    // This assures TypeScript that we have the correct data structure for signing up.
+    if ('username' in data) {
+      const result = await signUp(data as SignUpData);
+
+      if (result.success) {
+        router.replace('/(tabs)/home');
+      }
+    } else {
+      // This case should ideally not be reachable in the signup flow,
+      // but it's good practice to handle it.
+      console.error('Signup form submitted without a username.');
     }
-    // If there's an error, it will be automatically set in the AuthContext
-    // and displayed by the AuthForm component.
   };
 
-  /**
-   * Navigates to the signup screen.
-   */
-  const navigateToSignup = () => {
-    router.push('../(auth)/signup');
-  };
-
-  /**
-   * Navigates to the password recovery screen.
-   */
-  const navigateToForgotPassword = () => {
-    router.push('../(auth)/password-recovery');
+  const navigateToLogin = () => {
+    // Navigate back to 'login' within the current (auth) stack
+    router.push('/login');
   };
 
   return (
@@ -54,15 +41,14 @@ const LoginScreen = () => {
       style={{ paddingHorizontal: 24, justifyContent: 'center' }}
     >
       <AuthForm
-        formType="login"
-        onSubmit={handleLogin}
+        formType="signup"
+        onSubmit={handleSignup}
         loading={loading}
         serverError={error}
-        onNavigate={navigateToSignup}
-        onForgotPassword={navigateToForgotPassword}
+        onNavigate={navigateToLogin}
       />
     </Screen>
   );
 };
 
-export default LoginScreen;
+export default SignupScreen;

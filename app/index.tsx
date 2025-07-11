@@ -1,32 +1,36 @@
-// app/index.tsx
-import { useRouter } from 'expo-router';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useEffect } from 'react';
+import { Redirect } from 'expo-router';
 import { useAuth } from '../hooks/auth/useAuth';
-import { COLORS } from '../constants/theme';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { useTheme } from '../hooks/ui/useTheme';
 
+/**
+ * App Entry Point
+ *
+ * This component acts as the initial router for the application. It checks the
+ * user's authentication status and declaratively redirects them to the appropriate
+ * screen. This approach is safer than programmatic navigation on initial load,
+ * especially for web, as it avoids race conditions with the router setup.
+ */
 export default function Index() {
-  const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
+  const { colors } = useTheme();
 
-  useEffect(() => {
-    if (!loading) {
-      if (isAuthenticated) {
-        // Navigate authenticated users to the main app (home screen)
-        router.replace('../(tabs)/home');
-      } else {
-        // Navigate unauthenticated users to login screen
-        router.replace('../(auth)/login');
-      }
-    }
-  }, [isAuthenticated, loading, router]);
+  if (loading) {
+    // Display a loading indicator while the auth state is being determined.
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
-  // Show loading spinner while checking authentication status
-  return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color={COLORS.light.primary} />
-    </View>
-  );
+  if (isAuthenticated) {
+    // If the user is authenticated, redirect them to the main app (home screen).
+    return <Redirect href="/(tabs)/home" />;
+  } else {
+    // If the user is not authenticated, redirect them to the login screen.
+    return <Redirect href="/(auth)/login" />;
+  }
 }
 
 const styles = StyleSheet.create({
@@ -34,6 +38,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.light.background,
   },
 });

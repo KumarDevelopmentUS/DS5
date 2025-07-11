@@ -1,65 +1,34 @@
 {
   "expo": {
-    "name": "DS5",
-    "slug": "ds5-sports-tracker",
+    "name": "ds5",
+    "slug": "ds5",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "scheme": "ds4",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kumardevelopment.ds5",
-      "buildNumber": "1"
+      "bundleIdentifier": "com.anonymous.ds5"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      },
-      "package": "com.kumardevelopment.ds5",
-      "versionCode": 1,
-      "edgeToEdgeEnabled": true,
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "ds5",
-              "host": "*"
-            }
-          ],
-          "category": ["BROWSABLE", "DEFAULT"]
-        }
-      ]
+      }
     },
     "web": {
-      "favicon": "./assets/favicon.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      [
-        "expo-router",
-        {
-          "origin": "https://ds5-sports-tracker.com"
-        }
-      ],
-      [
-        "@sentry/react-native/expo",
-        {
-          "url": "https://sentry.io/",
-          "project": "react-native",
-          "organization": "kumar-development"
-        }
-      ]
-    ],
+    "plugins": ["expo-router", "expo-secure-store"],
     "experiments": {
       "typedRoutes": true
     }

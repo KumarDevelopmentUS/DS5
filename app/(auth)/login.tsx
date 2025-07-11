@@ -1,5 +1,3 @@
-// app/(auth)/login.tsx
-
 import React, { useState } from 'react';
 import {
   View,
@@ -33,7 +31,6 @@ export default function LoginScreen() {
       if (response.success && response.data) {
         // On successful login, the onAuthStateChanged listener in AuthContext
         // will automatically update the state and trigger navigation.
-        // No manual refresh or navigation is needed here.
       } else {
         setServerError(response.error || 'Login failed. Please try again.');
       }
@@ -46,11 +43,13 @@ export default function LoginScreen() {
   };
 
   const handleNavigateToSignup = () => {
-    router.push('../(auth)/signup');
+    // Navigate to 'signup' within the current (auth) stack
+    router.push('/signup');
   };
 
   const handleForgotPassword = () => {
-    router.push('../(auth)/password-recovery');
+    // Navigate to 'password-recovery' within the current (auth) stack
+    router.push('/forgotpassword');
   };
 
   return (
@@ -71,10 +70,7 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          {/* Logo or App Name could go here */}
           <View style={styles.logoContainer}>{/* Placeholder for logo */}</View>
-
-          {/* Auth Form */}
           <AuthForm
             formType="login"
             onSubmit={handleLogin}
@@ -106,6 +102,5 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
     marginBottom: SPACING.xxl,
-    // Add logo styles here when assets are available
   },
 });

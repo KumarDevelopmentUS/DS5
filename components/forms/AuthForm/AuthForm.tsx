@@ -1,5 +1,3 @@
-// components/forms/AuthForm/AuthForm.tsx
-
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { AuthFormProps, AuthFormData } from './AuthForm.types';
@@ -11,24 +9,8 @@ import {
   validatePassword,
   validateUsername,
 } from '../../../utils/validation';
-// Assuming core components exist as per the roadmap
-// import { Input } from '../../core/Input';
-// import { Button } from '../../core/Button';
-
-// --- Mock Components (Remove these when you have the real ones) ---
-const Input = ({ label, error, ...props }: any) => (
-  <View>
-    <Text>{label}</Text>
-    {/* A real Input would handle its own props like value, onChangeText, etc. */}
-    {error && <Text style={{ color: 'red' }}>{error}</Text>}
-  </View>
-);
-const Button = ({ children, loading, ...props }: any) => (
-  <TouchableOpacity {...props}>
-    <Text>{loading ? 'Loading...' : children}</Text>
-  </TouchableOpacity>
-);
-// --- End Mock Components ---
+import { Input } from '../../core/Input'; // Use the REAL Input component
+import { Button } from '../../core/Button'; // Use the REAL Button component
 
 export const AuthForm: React.FC<AuthFormProps> = ({
   formType,
@@ -53,19 +35,17 @@ export const AuthForm: React.FC<AuthFormProps> = ({
     },
     validators: {
       email: validateEmail,
-      // Only validate username in signup mode
       username: isLogin ? undefined : validateUsername,
       password: validatePassword,
-      // Custom validator for confirmPassword
       confirmPassword: (value) => {
-        if (isLogin) return { isValid: true }; // Don't validate on login
+        if (isLogin) return { isValid: true };
         if (value !== values.password) {
           return { isValid: false, error: 'Passwords do not match' };
         }
         return { isValid: true };
       },
     },
-    onSubmit: (data) => {
+    onSubmit: async (data) => {
       const submissionData: AuthFormData = isLogin
         ? { email: data.email, password: data.password }
         : {
@@ -73,7 +53,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             username: data.username,
             password: data.password,
           };
-      onSubmit(submissionData);
+      await onSubmit(submissionData);
     },
   });
 
@@ -100,7 +80,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             onChangeText={(text: string) => handleChange('username', text)}
             error={errors.username}
             autoCapitalize="none"
-            // leftIcon={{ type: 'feather', name: 'user' }}
           />
         </View>
       )}
@@ -113,7 +92,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({
           error={errors.email}
           keyboardType="email-address"
           autoCapitalize="none"
-          // leftIcon={{ type: 'feather', name: 'mail' }}
         />
       </View>
 
@@ -125,12 +103,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({
           error={errors.password}
           secureTextEntry={!isPasswordVisible}
           autoCapitalize="none"
-          // leftIcon={{ type: 'feather', name: 'lock' }}
-          // rightIcon={{
-          //   type: 'feather',
-          //   name: isPasswordVisible ? 'eye-off' : 'eye',
-          //   onPress: togglePasswordVisibility,
-          // }}
         />
       </View>
 
@@ -145,7 +117,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             error={errors.confirmPassword}
             secureTextEntry={!isPasswordVisible}
             autoCapitalize="none"
-            // leftIcon={{ type: 'feather', name: 'lock' }}
           />
         </View>
       )}
@@ -158,7 +129,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({
 
       <View style={styles.buttonContainer}>
         <Button onPress={handleSubmit} loading={loading}>
-          {isLogin ? 'Log In' : 'Sign Up'}
+          <Text>{isLogin ? 'Log In' : 'Sign Up'}</Text>
         </Button>
       </View>
 
