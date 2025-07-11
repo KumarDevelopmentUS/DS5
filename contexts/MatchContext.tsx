@@ -12,7 +12,9 @@ import { MatchStatus } from '../types/enums';
 import { ApiError } from '../types/api';
 import { cacheDataWithTTL, getCachedDataWithTTL } from '../utils/storage';
 import { parseError, logError, createErrorHandler } from '../utils/errors';
-// import { supabase } from '../services/database/databaseService'; // Will be available in Phase 2
+import { matchService } from '../services/match/matchService';
+import { realtimeService } from '../services/match/realtimeService';
+import { useAuthContext } from './AuthContext';
 
 // ============================================
 // TYPES AND INTERFACES
@@ -231,6 +233,7 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [state, dispatch] = useReducer(matchReducer, initialState);
+  const { user, profile } = useAuthContext();
 
   // Error handler for this component
   const handleError = createErrorHandler('MatchContext', 'match_management');
@@ -293,45 +296,88 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
   // ============================================
 
   useEffect(() => {
-    // TODO: Set up real-time subscriptions when realtimeService is available
-    // This will listen for:
-    // - New match invites
-    // - Match status changes
-    // - Player joins/leaves
-    // - Match updates
+    if (!user?.id) return;
 
-    /*
     const setupRealtimeSubscriptions = async () => {
       try {
-        // Subscribe to match invites for current user
-        const inviteSubscription = await realtimeService.subscribeToUserInvites(
-          currentUserId,
-          {
-            onInviteReceived: (invite) => {
-              dispatch({ type: 'ADD_MATCH_INVITE', payload: invite });
-            },
-            onInviteRevoked: (inviteId) => {
-              dispatch({ type: 'REMOVE_MATCH_INVITE', payload: inviteId });
-            },
-          }
+        // Subscribe to all active matches
+        const activeMatchIds = state.activeMatches.map((match) => match.id);
+
+        const subscriptions = await Promise.all(
+          activeMatchIds.map((matchId) =>
+            realtimeService.subscribeToMatch(
+              matchId,
+              {
+                onMatchUpdate: (updates) => {
+                  dispatch({
+                    type: 'UPDATE_MATCH',
+                    payload: { matchId, updates },
+                  });
+                },
+                onStatusChange: (status) => {
+                  dispatch({
+                    type: 'UPDATE_MATCH',
+                    payload: { matchId, updates: { status } },
+                  });
+
+                  // Remove from active matches if completed/abandoned
+                  if (status === 'completed' || status === 'abandoned') {
+                    dispatch({ type: 'REMOVE_ACTIVE_MATCH', payload: matchId });
+                  }
+                },
+                onPlayerJoin: (player) => {
+                  // Update match participants if needed
+                  dispatch({
+                    type: 'UPDATE_MATCH',
+                    payload: {
+                      matchId,
+                      updates: {
+                        participants: [
+                          ...(state.activeMatches.find((m) => m.id === matchId)
+                            ?.participants || []),
+                          player,
+                        ],
+                      },
+                    },
+                  });
+                },
+                onPlayerLeave: (playerId) => {
+                  const match = state.activeMatches.find(
+                    (m) => m.id === matchId
+                  );
+                  if (match?.participants) {
+                    dispatch({
+                      type: 'UPDATE_MATCH',
+                      payload: {
+                        matchId,
+                        updates: {
+                          participants: match.participants.filter(
+                            (p) => p.userId !== playerId
+                          ),
+                        },
+                      },
+                    });
+                  }
+                },
+                onError: (error) => {
+                  handleError(error, { matchId });
+                },
+              },
+              user.id,
+              {
+                username: profile?.username || 'Unknown',
+                avatarUrl: profile?.avatarUrl || undefined,
+                team: state.activeMatches
+                  .find((m) => m.id === matchId)
+                  ?.participants?.find((p) => p.userId === user.id)?.team,
+              }
+            )
+          )
         );
 
-        // Subscribe to active matches updates
-        const matchSubscription = await realtimeService.subscribeToUserMatches(
-          currentUserId,
-          {
-            onMatchUpdated: (matchId, updates) => {
-              dispatch({ type: 'UPDATE_MATCH', payload: { matchId, updates } });
-            },
-            onMatchCompleted: (matchId) => {
-              dispatch({ type: 'REMOVE_ACTIVE_MATCH', payload: matchId });
-            },
-          }
-        );
-
+        // Return cleanup function
         return () => {
-          inviteSubscription.unsubscribe();
-          matchSubscription.unsubscribe();
+          realtimeService.unsubscribeAll();
         };
       } catch (error) {
         handleError(error, { action: 'setup_realtime_subscriptions' });
@@ -339,12 +385,11 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     const cleanup = setupRealtimeSubscriptions();
-    return () => cleanup?.then(fn => fn?.());
-    */
 
-    // Placeholder return for now
-    return () => {};
-  }, [handleError]);
+    return () => {
+      cleanup?.then((cleanupFn) => cleanupFn?.());
+    };
+  }, [state.activeMatches, user?.id, handleError]);
 
   // ============================================
   // MATCH ACTIONS
@@ -354,24 +399,41 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       dispatch({ type: 'SET_REFRESHING', payload: true });
 
-      // TODO: Replace with actual service calls when matchService is available
-      /*
+      if (!user?.id) {
+        dispatch({ type: 'SET_REFRESHING', payload: false });
+        return;
+      }
+
       const [activeMatchesResult, invitesResult] = await Promise.all([
-        matchService.getActiveMatches(),
-        matchService.getMatchInvites(),
+        matchService.getActiveMatches(user.id),
+        matchService.getMatchInvites(user.id),
       ]);
 
       if (activeMatchesResult.success && activeMatchesResult.data) {
-        dispatch({ type: 'SET_ACTIVE_MATCHES', payload: activeMatchesResult.data });
+        dispatch({
+          type: 'SET_ACTIVE_MATCHES',
+          payload: activeMatchesResult.data,
+        });
       }
 
       if (invitesResult.success && invitesResult.data) {
-        dispatch({ type: 'SET_MATCH_INVITES', payload: invitesResult.data });
+        // Transform to MatchInvite format
+        const invites: MatchInvite[] = invitesResult.data.map(
+          (invite: any) => ({
+            id: invite.id,
+            matchId: invite.matchId,
+            match: invite.match,
+            inviterId: invite.inviterId,
+            inviterUsername: invite.inviterUsername,
+            invitedAt: new Date(invite.invitedAt),
+            expiresAt: invite.expiresAt
+              ? new Date(invite.expiresAt)
+              : undefined,
+            message: invite.message,
+          })
+        );
+        dispatch({ type: 'SET_MATCH_INVITES', payload: invites });
       }
-      */
-
-      // For now, just simulate loading
-      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       dispatch({ type: 'SET_REFRESHING', payload: false });
       dispatch({ type: 'SET_LAST_FETCH', payload: new Date().toISOString() });
@@ -379,7 +441,7 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
       const parsedError = handleError(error, { action: 'refresh_matches' });
       dispatch({ type: 'SET_ERROR', payload: parsedError });
     }
-  }, [handleError]);
+  }, [user?.id, handleError]);
 
   const acceptInvite = useCallback(
     async (inviteId: string): Promise<boolean> => {
@@ -399,17 +461,28 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
         };
         dispatch({ type: 'ADD_ACTIVE_MATCH', payload: updatedMatch });
 
-        // TODO: Call actual service when available
-        /*
-      const result = await matchService.acceptInvite(inviteId);
-      
-      if (!result.success) {
-        // Revert optimistic update
-        dispatch({ type: 'ADD_MATCH_INVITE', payload: invite });
-        dispatch({ type: 'REMOVE_ACTIVE_MATCH', payload: invite.matchId });
-        throw new Error(result.error || 'Failed to accept invite');
-      }
-      */
+        // Call actual service
+        const result = await matchService.joinMatchByCode(
+          invite.match.roomCode,
+          {
+            userId: user?.id || '',
+            team: undefined, // Let the service balance teams
+            role: 'player' as any,
+          }
+        );
+
+        if (!result.success || !result.data) {
+          // Revert optimistic update
+          dispatch({ type: 'ADD_MATCH_INVITE', payload: invite });
+          dispatch({ type: 'REMOVE_ACTIVE_MATCH', payload: invite.matchId });
+          throw new Error(result.error?.message || 'Failed to accept invite');
+        }
+
+        // Update with actual match data from server
+        dispatch({
+          type: 'UPDATE_MATCH',
+          payload: { matchId: result.data.id, updates: result.data },
+        });
 
         return true;
       } catch (error) {
@@ -420,7 +493,7 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
         return false;
       }
     },
-    [state.matchInvites, handleError]
+    [state.matchInvites, user?.id, handleError]
   );
 
   const declineInvite = useCallback(
@@ -434,16 +507,9 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
         // Optimistic update
         dispatch({ type: 'REMOVE_MATCH_INVITE', payload: inviteId });
 
-        // TODO: Call actual service when available
-        /*
-      const result = await matchService.declineInvite(inviteId);
-      
-      if (!result.success) {
-        // Revert optimistic update
-        dispatch({ type: 'ADD_MATCH_INVITE', payload: invite });
-        throw new Error(result.error || 'Failed to decline invite');
-      }
-      */
+        // Note: Since we don't have a specific decline invite API,
+        // we just remove it from the local state
+        // In a real implementation, this would notify the server
 
         return true;
       } catch (error) {
@@ -460,22 +526,51 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
   const joinMatch = useCallback(
     async (roomCode: string): Promise<Match | null> => {
       try {
-        // TODO: Call actual service when available
-        /*
-      const result = await matchService.joinMatchByCode(roomCode);
-      
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to join match');
-      }
+        if (!user?.id) {
+          throw new Error('Must be logged in to join a match');
+        }
 
-      const match = result.data;
-      dispatch({ type: 'ADD_ACTIVE_MATCH', payload: match });
-      return match;
-      */
+        const result = await matchService.joinMatchByCode(roomCode, {
+          userId: user.id,
+          team: undefined, // Let the service balance teams
+          role: 'player' as any,
+        });
 
-        // Placeholder implementation
-        console.log('Joining match with code:', roomCode);
-        return null;
+        if (!result.success || !result.data) {
+          throw new Error(result.error?.message || 'Failed to join match');
+        }
+
+        const match = result.data;
+        dispatch({ type: 'ADD_ACTIVE_MATCH', payload: match });
+
+        // Subscribe to real-time updates for this match
+        await realtimeService.subscribeToMatch(
+          match.id,
+          {
+            onMatchUpdate: (updates) => {
+              dispatch({
+                type: 'UPDATE_MATCH',
+                payload: { matchId: match.id, updates },
+              });
+            },
+            onStatusChange: (status) => {
+              dispatch({
+                type: 'UPDATE_MATCH',
+                payload: { matchId: match.id, updates: { status } },
+              });
+            },
+            onError: (error) => {
+              handleError(error, { matchId: match.id });
+            },
+          },
+          user.id,
+          {
+            username: profile?.username || 'Unknown',
+            avatarUrl: profile?.avatarUrl || undefined,
+          }
+        );
+
+        return match;
       } catch (error) {
         handleError(error, {
           action: 'join_match',
@@ -484,7 +579,7 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
         return null;
       }
     },
-    [handleError]
+    [user, profile, handleError]
   );
 
   const leaveMatch = useCallback(
@@ -495,19 +590,23 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
           throw new Error('Match not found');
         }
 
+        if (!user?.id) {
+          throw new Error('Must be logged in to leave a match');
+        }
+
         // Optimistic update
         dispatch({ type: 'REMOVE_ACTIVE_MATCH', payload: matchId });
 
-        // TODO: Call actual service when available
-        /*
-      const result = await matchService.leaveMatch(matchId);
-      
-      if (!result.success) {
-        // Revert optimistic update
-        dispatch({ type: 'ADD_ACTIVE_MATCH', payload: match });
-        throw new Error(result.error || 'Failed to leave match');
-      }
-      */
+        const result = await matchService.leaveMatch(matchId, user.id);
+
+        if (!result.success) {
+          // Revert optimistic update
+          dispatch({ type: 'ADD_ACTIVE_MATCH', payload: match });
+          throw new Error(result.error?.message || 'Failed to leave match');
+        }
+
+        // Unsubscribe from real-time updates
+        await realtimeService.unsubscribeFromMatch(matchId);
 
         return true;
       } catch (error) {
@@ -518,7 +617,7 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
         return false;
       }
     },
-    [state.activeMatches, handleError]
+    [state.activeMatches, user?.id, handleError]
   );
 
   // ============================================
@@ -554,13 +653,20 @@ export const MatchProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     // Auto-refresh every 30 seconds when app is active
     const interval = setInterval(() => {
-      if (!state.loading && !state.refreshing) {
+      if (!state.loading && !state.refreshing && user?.id) {
         refreshMatches();
       }
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [state.loading, state.refreshing, refreshMatches]);
+  }, [state.loading, state.refreshing, user?.id, refreshMatches]);
+
+  // Initial load when user logs in
+  useEffect(() => {
+    if (user?.id && !state.loading && !state.refreshing) {
+      refreshMatches();
+    }
+  }, [user?.id]);
 
   // ============================================
   // CONTEXT VALUE

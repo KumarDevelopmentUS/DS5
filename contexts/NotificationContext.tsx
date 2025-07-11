@@ -13,6 +13,8 @@ import { NotificationType } from '../types/enums';
 import { Notification, NotificationData } from '../types/models';
 import { createErrorHandler } from '../utils/errors';
 import { cacheDataWithTTL, getCachedDataWithTTL } from '../utils/storage';
+import { notificationService } from '../services/notification/notificationService';
+import { supabase } from '../services/database/databaseService';
 
 // ============================================
 // TYPES AND INTERFACES
@@ -24,6 +26,7 @@ export interface NotificationState {
   loading: boolean;
   error: ApiError | null;
   lastFetch: string | null;
+  userId: string | null;
 }
 
 export interface NotificationContextValue {
@@ -65,7 +68,8 @@ type NotificationAction =
   | { type: 'MARK_AS_READ'; payload: string }
   | { type: 'MARK_ALL_AS_READ' }
   | { type: 'CLEAR_ALL' }
-  | { type: 'UPDATE_UNREAD_COUNT' };
+  | { type: 'UPDATE_UNREAD_COUNT' }
+  | { type: 'SET_USER_ID'; payload: string | null };
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -96,6 +100,12 @@ const notificationReducer = (
         ...state,
         error: action.payload,
         loading: false,
+      };
+
+    case 'SET_USER_ID':
+      return {
+        ...state,
+        userId: action.payload,
       };
 
     case 'SET_NOTIFICATIONS': {
@@ -227,6 +237,27 @@ const initialState: NotificationState = {
   loading: false,
   error: null,
   lastFetch: null,
+  userId: null,
+};
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Transforms database notification to app notification model
+ */
+const transformNotification = (dbNotification: any): Notification => {
+  return {
+    id: dbNotification.id,
+    userId: dbNotification.user_id,
+    type: dbNotification.type,
+    title: dbNotification.title,
+    message: dbNotification.message,
+    data: dbNotification.data || {},
+    isRead: dbNotification.is_read || false,
+    createdAt: new Date(dbNotification.created_at),
+  };
 };
 
 // ============================================
@@ -251,6 +282,32 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     'NotificationContext',
     'notification_management'
   );
+
+  // ============================================
+  // AUTH STATE MANAGEMENT
+  // ============================================
+
+  // Get current user and listen for auth changes
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      dispatch({ type: 'SET_USER_ID', payload: user?.id || null });
+    };
+
+    getUser();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        dispatch({ type: 'SET_USER_ID', payload: session?.user?.id || null });
+      }
+    );
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
 
   // ============================================
   // CACHE MANAGEMENT
@@ -293,28 +350,43 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   // ============================================
 
   const showNotification = useCallback(
-    (
+    async (
       type: NotificationType,
       title: string,
       message?: string,
       data: NotificationData = {}
     ) => {
       try {
-        const newNotification: Notification = {
-          id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          userId: 'current_user', // This would come from auth context in practice
+        if (!state.userId) {
+          console.warn('Cannot create notification: No user logged in');
+          return;
+        }
+
+        // Create notification on server
+        const response = await notificationService.createNotification({
+          userId: state.userId,
           type,
           title,
           message,
           data,
-          isRead: false,
-          createdAt: new Date(),
-        };
+        });
 
-        dispatch({ type: 'ADD_NOTIFICATION', payload: newNotification });
-
-        // TODO: When notification service is implemented, also send to server
-        // await notificationService.createNotification(newNotification);
+        if (response.success && response.data) {
+          dispatch({ type: 'ADD_NOTIFICATION', payload: response.data });
+        } else {
+          // If server creation fails, still show local notification
+          const localNotification: Notification = {
+            id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            userId: state.userId,
+            type,
+            title,
+            message,
+            data,
+            isRead: false,
+            createdAt: new Date(),
+          };
+          dispatch({ type: 'ADD_NOTIFICATION', payload: localNotification });
+        }
       } catch (error) {
         handleError(error, {
           action: 'show_notification',
@@ -323,7 +395,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         });
       }
     },
-    [handleError]
+    [state.userId, handleError]
   );
 
   const markAsRead = useCallback(
@@ -332,8 +404,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         // Optimistic update
         dispatch({ type: 'MARK_AS_READ', payload: notificationId });
 
-        // TODO: When notification service is implemented, sync with server
-        // await notificationService.markAsRead(notificationId);
+        // Update on server
+        const { error } = await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notificationId);
+
+        if (error) throw error;
 
         return true;
       } catch (error) {
@@ -343,20 +420,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         });
 
         // Revert optimistic update on error
-        const notification = state.notifications.find(
-          (n) => n.id === notificationId
-        );
-        if (notification && !notification.isRead) {
-          dispatch({
-            type: 'UPDATE_NOTIFICATION',
-            payload: { id: notificationId, updates: { isRead: false } },
-          });
-        }
+        dispatch({
+          type: 'UPDATE_NOTIFICATION',
+          payload: { id: notificationId, updates: { isRead: false } },
+        });
 
         return false;
       }
     },
-    [state.notifications, handleError]
+    [handleError]
   );
 
   const markAllAsRead = useCallback(async (): Promise<boolean> => {
@@ -370,65 +442,183 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
       // Optimistic update
       dispatch({ type: 'MARK_ALL_AS_READ' });
 
-      // TODO: When notification service is implemented, sync with server
-      // await notificationService.markAllAsRead();
+      // Update all unread notifications on server
+      const unreadIds = unreadNotifications.map((n) => n.id);
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .in('id', unreadIds);
+
+      if (error) throw error;
 
       return true;
     } catch (error) {
       handleError(error, { action: 'mark_all_as_read' });
 
       // Revert optimistic update on error
-      dispatch({ type: 'UPDATE_UNREAD_COUNT' });
+      refreshNotifications();
 
       return false;
     }
   }, [state.notifications, handleError]);
 
   const removeNotification = useCallback(
-    (notificationId: string) => {
+    async (notificationId: string) => {
       try {
+        // Optimistic update
         dispatch({ type: 'REMOVE_NOTIFICATION', payload: notificationId });
 
-        // TODO: When notification service is implemented, sync with server
-        // notificationService.deleteNotification(notificationId);
+        // Delete from server
+        const { error } = await supabase
+          .from('notifications')
+          .delete()
+          .eq('id', notificationId);
+
+        if (error) throw error;
       } catch (error) {
         handleError(error, {
           action: 'remove_notification',
           notificationId,
         });
+
+        // Revert by refreshing notifications
+        refreshNotifications();
       }
     },
     [handleError]
   );
 
-  const clearAllNotifications = useCallback(() => {
+  const clearAllNotifications = useCallback(async () => {
     try {
+      if (!state.userId) {
+        console.warn('Cannot clear notifications: No user logged in');
+        return;
+      }
+
+      // Optimistic update
       dispatch({ type: 'CLEAR_ALL' });
 
-      // TODO: When notification service is implemented, sync with server
-      // notificationService.clearAllNotifications();
+      // Delete all user notifications from server
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', state.userId);
+
+      if (error) throw error;
     } catch (error) {
       handleError(error, { action: 'clear_all_notifications' });
+
+      // Revert by refreshing notifications
+      refreshNotifications();
     }
-  }, [handleError]);
+  }, [state.userId, handleError]);
 
   const refreshNotifications = useCallback(async (): Promise<void> => {
     try {
+      if (!state.userId) {
+        console.warn('Cannot refresh notifications: No user logged in');
+        return;
+      }
+
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      // TODO: When notification service is implemented, fetch from server
-      // const notifications = await notificationService.getNotifications();
-      // dispatch({ type: 'SET_NOTIFICATIONS', payload: notifications });
+      // Fetch notifications from server
+      const { data: notifications, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', state.userId)
+        .order('created_at', { ascending: false })
+        .limit(NOTIFICATION_CONFIG.MAX_IN_APP_NOTIFICATIONS);
 
-      // For now, just clear loading state
-      dispatch({ type: 'SET_LOADING', payload: false });
+      if (error) throw error;
+
+      // Transform and set notifications
+      const transformedNotifications = notifications.map(transformNotification);
+      dispatch({
+        type: 'SET_NOTIFICATIONS',
+        payload: transformedNotifications,
+      });
     } catch (error) {
       const parsedError = handleError(error, {
         action: 'refresh_notifications',
       });
       dispatch({ type: 'SET_ERROR', payload: parsedError });
     }
-  }, [handleError]);
+  }, [state.userId, handleError]);
+
+  // ============================================
+  // AUTO-REFRESH ON USER CHANGE
+  // ============================================
+
+  useEffect(() => {
+    if (state.userId) {
+      refreshNotifications();
+    } else {
+      // Clear notifications when user logs out
+      dispatch({ type: 'CLEAR_ALL' });
+    }
+  }, [state.userId]);
+
+  // ============================================
+  // REAL-TIME SUBSCRIPTIONS
+  // ============================================
+
+  useEffect(() => {
+    if (!state.userId) return;
+
+    // Subscribe to new notifications
+    const subscription = supabase
+      .channel('notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${state.userId}`,
+        },
+        (payload) => {
+          const newNotification = transformNotification(payload.new);
+          dispatch({ type: 'ADD_NOTIFICATION', payload: newNotification });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${state.userId}`,
+        },
+        (payload) => {
+          const updatedNotification = transformNotification(payload.new);
+          dispatch({
+            type: 'UPDATE_NOTIFICATION',
+            payload: {
+              id: updatedNotification.id,
+              updates: updatedNotification,
+            },
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${state.userId}`,
+        },
+        (payload) => {
+          dispatch({ type: 'REMOVE_NOTIFICATION', payload: payload.old.id });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [state.userId]);
 
   // ============================================
   // UTILITY FUNCTIONS
