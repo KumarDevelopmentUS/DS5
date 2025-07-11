@@ -48,8 +48,9 @@ export enum PlayType {
 
 export enum UserRole {
   PLAYER = 'player',
-  ADMIN = 'admin',
   MODERATOR = 'moderator',
+  ADMIN = 'admin',
+  SUPER_ADMIN = 'super_admin',
 }
 
 export enum NotificationType {

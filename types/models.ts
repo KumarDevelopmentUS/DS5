@@ -325,7 +325,7 @@ export interface Achievement {
 }
 
 // ============================================
-// UI/DISPLAY INTERFACES
+// UI, PAGINATION, and RESPONSE INTERFACES
 // ============================================
 
 // Leaderboard entry
@@ -337,55 +337,34 @@ export interface LeaderboardEntry {
   change?: number;
 }
 
-// Search/Filter interfaces
-export interface SearchFilters {
-  query?: string;
-  sortBy?: string;
-  sortDirection?: SortDirection;
-  dateRange?: DateRange;
-  tags?: string[];
-}
-
 export interface DateRange {
   start: Date;
   end: Date;
 }
 
-// Pagination
+// Parameters for requesting paginated data
 export interface PaginationParams {
+  page?: number;
+  pageSize?: number;
+  cursor?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+// Metadata about the current page of a paginated response
+export interface PaginationMeta {
   page: number;
-  limit: number;
-  total?: number;
+  pageSize: number;
+  totalPages?: number;
+  totalCount?: number;
 }
 
-// ============================================
-// RESPONSE WRAPPER INTERFACES
-// ============================================
-
-// Generic API response wrapper
-export interface ApiResponse<T> {
-  data: T;
-  error?: ApiError;
-  metadata?: ResponseMetadata;
-}
-
-export interface ApiError {
-  code: string;
-  message: string;
-  details?: any;
-}
-
-export interface ResponseMetadata {
-  timestamp: Date;
-  requestId?: string;
-  pagination?: PaginationParams;
-}
-
-// List response with pagination
+// A generic response for a list of items with pagination
 export interface PaginatedResponse<T> {
   items: T[];
-  pagination: PaginationParams;
+  pagination: PaginationMeta;
   hasMore: boolean;
+  totalCount?: number;
 }
 
 // ============================================
