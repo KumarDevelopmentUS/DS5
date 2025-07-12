@@ -22,16 +22,22 @@ export default function LoginScreen() {
   const [serverError, setServerError] = useState<string | null>(null);
 
   const handleLogin = async (data: SignInData) => {
+    console.log('Login attempt started');
     setLoading(true);
     setServerError(null);
 
     try {
       const response = await authService.signIn(data);
+      console.log('Login response:', response);
 
       if (response.success && response.data) {
-        // On successful login, the onAuthStateChanged listener in AuthContext
-        // will automatically update the state and trigger navigation.
+        console.log('Login successful, waiting for navigation...');
+        // Add a timeout to see if navigation happens
+        setTimeout(() => {
+          console.log('Navigation should have happened by now');
+        }, 2000);
       } else {
+        console.log('Login failed:', response.error);
         setServerError(response.error || 'Login failed. Please try again.');
       }
     } catch (error) {

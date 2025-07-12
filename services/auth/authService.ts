@@ -10,7 +10,7 @@ import type {
 } from '@supabase/supabase-js';
 import type { TableInsert, Database, Json } from '../database/databaseService';
 
-// --- Type definitions are unchanged ---
+// --- Type definitions ---
 export interface SignUpData {
   email: string;
   password: string;
@@ -46,14 +46,106 @@ export interface AuthUser {
   createdAt: string;
 }
 
+export interface UserProfile {
+  id: string;
+  username: string;
+  nickname?: string;
+  email: string;
+  avatarUrl?: string;
+  school?: string;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export class AuthService {
+  /**
+   * Get current session - ADDED THIS METHOD
+   */
+  static async getCurrentSession(): Promise<Session | null> {
+    try {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Error getting current session:', error);
+        return null;
+      }
+      return session;
+    } catch (error) {
+      console.error('Error getting current session:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Refresh session - ADDED THIS METHOD
+   */
+  static async refreshSession(): Promise<AuthServiceResponse<Session>> {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error) {
+        return { data: null, error: error.message, success: false };
+      }
+      return { data: data.session, error: null, success: true };
+    } catch (error: any) {
+      const errorInfo = handleDatabaseError(error, 'refreshSession');
+      return { data: null, error: errorInfo.message, success: false };
+    }
+  }
+
+  /**
+   * Check if username is available - ADDED THIS METHOD
+   */
+  static async isUsernameAvailable(username: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', username.toLowerCase())
+        .single();
+
+      if (error && error.code === 'PGRST116') {
+        // No rows returned, username is available
+        return true;
+      }
+
+      // If we found a row, username is taken
+      return false;
+    } catch (error) {
+      console.error('Error checking username availability:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Reset password - ADDED THIS METHOD
+   */
+  static async resetPassword(
+    resetData: ResetPasswordData
+  ): Promise<AuthServiceResponse<null>> {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        resetData.email
+      );
+      if (error) {
+        return { data: null, error: error.message, success: false };
+      }
+      return { data: null, error: null, success: true };
+    } catch (error: any) {
+      const errorInfo = handleDatabaseError(error, 'resetPassword');
+      return { data: null, error: errorInfo.message, success: false };
+    }
+  }
+
   /**
    * Sign up a new user. The user's profile is now created automatically
    * by the database trigger we created in the Supabase dashboard.
    */
   static async signUp(
     signUpData: SignUpData
-  ): Promise<AuthServiceResponse<{ user: AuthUser }>> {
+  ): Promise<AuthServiceResponse<{ user: AuthUser; profile: UserProfile }>> {
     try {
       const { email, password, username, nickname, school } = signUpData;
 
@@ -78,7 +170,7 @@ export class AuthService {
         return { data: null, error: 'User creation failed', success: false };
       }
 
-      // No second step is needed. The trigger handled it.
+      // Create the user object
       const user: AuthUser = {
         id: authData.user.id,
         email: authData.user.email!,
@@ -87,8 +179,21 @@ export class AuthService {
         createdAt: authData.user.created_at,
       };
 
+      // Create a mock profile (the real one will be created by the trigger)
+      const profile: UserProfile = {
+        id: authData.user.id,
+        username: username,
+        nickname: nickname || '',
+        email: email,
+        avatarUrl: '',
+        school: school || '',
+        isPublic: true,
+        createdAt: authData.user.created_at,
+        updatedAt: authData.user.created_at,
+      };
+
       return {
-        data: { user },
+        data: { user, profile },
         error: null,
         success: true,
       };
