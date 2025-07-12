@@ -262,14 +262,14 @@ export const SECURITY_CONFIG = {
   MAX_REPORT_REASONS_LENGTH: 500,
 };
 
-// Error Monitoring Configuration (Sentry)
+// Error Monitoring Configuration (Sentry) - FIXED!
 export const ERROR_MONITORING_CONFIG = {
   // Sentry configuration
   SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
 
-  // Error reporting settings
-  ENABLED: process.env.EXPO_PUBLIC_ENVIRONMENT === 'production',
-  ENABLE_IN_DEV: false, // Set to true if you want Sentry in development
+  // Error reporting settings - CHANGED: Now enabled in development too!
+  ENABLED: true, // Always enabled
+  ENABLE_IN_DEV: true, // Enabled in development for testing
 
   // Sample rates
   TRACES_SAMPLE_RATE:
@@ -321,6 +321,11 @@ const validateConfig = () => {
     errors.push('EXPO_PUBLIC_SUPABASE_ANON_KEY is required');
   }
 
+  // Add Sentry DSN validation
+  if (ERROR_MONITORING_CONFIG.ENABLED && !ERROR_MONITORING_CONFIG.SENTRY_DSN) {
+    console.warn('EXPO_PUBLIC_SENTRY_DSN is missing - Sentry will not work');
+  }
+
   if (errors.length > 0) {
     console.error('Configuration errors:', errors);
     if (process.env.EXPO_PUBLIC_ENVIRONMENT === 'production') {
@@ -344,5 +349,5 @@ export const CONFIG = {
   NOTIFICATION: NOTIFICATION_CONFIG,
   SECURITY: SECURITY_CONFIG,
   DEV: DEV_CONFIG,
-  ERROR_MONITORING: ERROR_MONITORING_CONFIG, // Add this line
+  ERROR_MONITORING: ERROR_MONITORING_CONFIG,
 } as const;

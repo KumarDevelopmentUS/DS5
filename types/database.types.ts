@@ -570,6 +570,18 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      is_match_creator: {
+        Args: { target_match_id: string; current_user_id: string }
+        Returns: boolean
+      }
+      is_user_in_match: {
+        Args: { target_match_id: string; current_user_id: string }
+        Returns: boolean
+      }
+      match_allows_modifications: {
+        Args: { target_match_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

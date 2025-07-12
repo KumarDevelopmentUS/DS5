@@ -140,11 +140,21 @@ const SplashScreenFallback: React.FC = () => {
   );
 };
 
-// Error Boundary Fallback
-const ErrorFallback: React.FC<{ error: Error }> = ({ error }) => {
+// Proper Error Boundary Component - matches Sentry's expected signature
+const ErrorBoundaryFallback = ({
+  error,
+  resetError,
+}: {
+  error: unknown;
+  componentStack: string;
+  eventId: string;
+  resetError: () => void;
+}) => {
   useEffect(() => {
-    // Log the error to Sentry
-    Sentry.captureException(error);
+    // Log the error to Sentry (error is already captured by Sentry.withErrorBoundary)
+    if (error instanceof Error) {
+      console.error('Error boundary caught error:', error);
+    }
   }, [error]);
 
   return (
@@ -155,6 +165,7 @@ const ErrorFallback: React.FC<{ error: Error }> = ({ error }) => {
   );
 };
 
+// Main App Component
 function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     'Inter-Regular': require('../assets/fonts/Inter-Regular.ttf'),
@@ -223,15 +234,6 @@ function RootLayout() {
   );
 }
 
-// Enhanced error boundary with Sentry integration
-const RootLayoutWithErrorBoundary = () => {
-  try {
-    return <RootLayout />;
-  } catch (error) {
-    return <ErrorFallback error={error as Error} />;
-  }
-};
-
 // Styles
 const styles = StyleSheet.create({
   splashContainer: {
@@ -248,8 +250,17 @@ const styles = StyleSheet.create({
   },
 });
 
-// Wrap the root layout with Sentry for automatic error catching and performance monitoring
+// Create Error Boundary wrapped component
+const RootLayoutWithErrorBoundary = Sentry.withErrorBoundary(RootLayout, {
+  fallback: ErrorBoundaryFallback,
+  beforeCapture: (scope, error, hint) => {
+    scope.setTag('boundary', 'root');
+    scope.setLevel('fatal');
+  },
+});
+
+// Export the properly wrapped component
 export default ERROR_MONITORING_CONFIG.ENABLED ||
 ERROR_MONITORING_CONFIG.ENABLE_IN_DEV
   ? Sentry.wrap(RootLayoutWithErrorBoundary)
-  : RootLayoutWithErrorBoundary;
+  : RootLayout;
