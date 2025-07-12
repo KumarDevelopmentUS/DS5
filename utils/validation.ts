@@ -441,6 +441,48 @@ export const validateFileUpload = (
 
   return { isValid: true };
 };
+/**
+ * Validates a name field (first name, last name, etc.)
+ * @param name - The name to validate
+ * @returns Validation result with success status and optional error message
+ * */
+
+export const validateName = (
+  name: string
+): { isValid: boolean; error?: string } => {
+  // Remove leading/trailing whitespace for validation
+  const trimmedName = name.trim();
+
+  if (!trimmedName) {
+    return { isValid: false, error: 'First name is required' };
+  }
+
+  if (trimmedName.length < 2) {
+    return {
+      isValid: false,
+      error: 'First name must be at least 2 characters',
+    };
+  }
+
+  if (trimmedName.length > 50) {
+    return {
+      isValid: false,
+      error: 'First name must be less than 50 characters',
+    };
+  }
+
+  // Check for valid characters (letters, spaces, hyphens, apostrophes)
+  const nameRegex = /^[a-zA-Z\s\-']+$/;
+  if (!nameRegex.test(trimmedName)) {
+    return {
+      isValid: false,
+      error:
+        'First name can only contain letters, spaces, hyphens, and apostrophes',
+    };
+  }
+
+  return { isValid: true };
+};
 
 /**
  * Validates score value

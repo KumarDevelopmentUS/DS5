@@ -13,16 +13,11 @@ import { SchoolPickerProps } from './SchoolPicker.types';
 import { createStyles } from './SchoolPicker.styles';
 import { useTheme } from '../../../hooks/ui/useTheme';
 import { SCHOOLS, School } from '../../../constants/data/schools';
-// Assuming a core Button component exists
-// import { Button } from '../../core/Button';
+import { Button } from '../../core/Button';
 
-// --- Mock Component (Remove when you have the real one) ---
-const Button = ({ children, ...props }: any) => (
-  <TouchableOpacity {...props}>
-    <Text>{children}</Text>
-  </TouchableOpacity>
+const ChevronDownIcon = () => (
+  <Text style={{ fontSize: 16, color: '#999' }}>▼</Text>
 );
-// --- End Mock Component ---
 
 export const SchoolPicker: React.FC<SchoolPickerProps> = ({
   value,
@@ -44,7 +39,7 @@ export const SchoolPicker: React.FC<SchoolPickerProps> = ({
     return SCHOOLS.filter(
       (school) =>
         school.name.toLowerCase().includes(lowercasedQuery) ||
-        school.display.toLowerCase().includes(lowercasedQuery)
+        school.state.toLowerCase().includes(lowercasedQuery)
     );
   }, [searchQuery]);
 
@@ -54,57 +49,123 @@ export const SchoolPicker: React.FC<SchoolPickerProps> = ({
     setSearchQuery('');
   };
 
+  const handleClearSelection = () => {
+    onSelect(null);
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setSearchQuery('');
+  };
+
   const renderItem = ({ item }: { item: School }) => (
     <TouchableOpacity
       style={styles.listItem}
       onPress={() => handleSelectSchool(item)}
+      activeOpacity={0.7}
     >
-      <Text style={styles.listItemText}>{item.name}</Text>
+      <View>
+        <Text style={styles.listItemText}>{item.name}</Text>
+        <Text
+          style={[
+            styles.listItemText,
+            { fontSize: 14, color: colors.textSecondary },
+          ]}
+        >
+          {item.state}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 
   return (
     <View>
       {label && <Text style={styles.label}>{label}</Text>}
+
       <TouchableOpacity
         style={[styles.pickerInput, !!error && styles.pickerInputError]}
         onPress={() => setModalVisible(true)}
+        activeOpacity={0.7}
       >
-        <Text style={[styles.pickerText, !value && styles.placeholderText]}>
-          {value ? value.name : placeholder}
-        </Text>
-        {/* You could add a dropdown icon here */}
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.pickerText, !value && styles.placeholderText]}>
+            {value ? value.name : placeholder}
+          </Text>
+          {value && (
+            <Text
+              style={[
+                styles.pickerText,
+                { fontSize: 12, color: colors.textSecondary },
+              ]}
+            >
+              {value.state}
+            </Text>
+          )}
+        </View>
+        <ChevronDownIcon />
       </TouchableOpacity>
+
+      {value && (
+        <TouchableOpacity
+          onPress={handleClearSelection}
+          style={{ marginTop: 8, alignSelf: 'flex-start' }}
+        >
+          <Text style={{ color: colors.primary, fontSize: 14 }}>
+            Clear selection
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {error && <Text style={styles.errorText}>{error}</Text>}
 
       <Modal
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={handleCloseModal}
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select School</Text>
-              <Button onPress={() => setModalVisible(false)}>
-                <Text>Close</Text>
+              <Button variant="ghost" size="small" onPress={handleCloseModal}>
+                Done
               </Button>
             </View>
+
             <TextInput
               style={styles.searchInput}
-              placeholder="Search for a school..."
+              placeholder="Search for your school..."
               placeholderTextColor={colors.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
+              autoFocus={true}
+              clearButtonMode="while-editing"
             />
+
             <FlatList
               data={filteredSchools}
               renderItem={renderItem}
               keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
                 <View style={styles.emptyStateContainer}>
-                  <Text style={styles.emptyStateText}>No schools found.</Text>
+                  <Text style={styles.emptyStateText}>
+                    {searchQuery
+                      ? 'No schools found matching your search.'
+                      : 'No schools available.'}
+                  </Text>
+                  {searchQuery && (
+                    <Text
+                      style={[
+                        styles.emptyStateText,
+                        { marginTop: 8, fontSize: 14 },
+                      ]}
+                    >
+                      Try adjusting your search terms.
+                    </Text>
+                  )}
                 </View>
               }
             />

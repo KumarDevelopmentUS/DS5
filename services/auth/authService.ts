@@ -50,7 +50,6 @@ export interface UserProfile {
   id: string;
   username: string;
   nickname?: string;
-  email: string;
   avatarUrl?: string;
   school?: string;
   isPublic: boolean;
@@ -60,7 +59,7 @@ export interface UserProfile {
 
 export class AuthService {
   /**
-   * Get current session - ADDED THIS METHOD
+   * Get current session
    */
   static async getCurrentSession(): Promise<Session | null> {
     try {
@@ -80,7 +79,7 @@ export class AuthService {
   }
 
   /**
-   * Refresh session - ADDED THIS METHOD
+   * Refresh session
    */
   static async refreshSession(): Promise<AuthServiceResponse<Session>> {
     try {
@@ -96,7 +95,7 @@ export class AuthService {
   }
 
   /**
-   * Check if username is available - ADDED THIS METHOD
+   * Check if username is available
    */
   static async isUsernameAvailable(username: string): Promise<boolean> {
     try {
@@ -120,7 +119,7 @@ export class AuthService {
   }
 
   /**
-   * Reset password - ADDED THIS METHOD
+   * Reset password
    */
   static async resetPassword(
     resetData: ResetPasswordData
@@ -140,8 +139,10 @@ export class AuthService {
   }
 
   /**
-   * Sign up a new user. The user's profile is now created automatically
-   * by the database trigger we created in the Supabase dashboard.
+   * Sign up a new user with proper error handling and manual profile creation
+   */
+  /**
+   * Sign up a new user - relies ONLY on database trigger for profile creation
    */
   static async signUp(
     signUpData: SignUpData
@@ -149,28 +150,98 @@ export class AuthService {
     try {
       const { email, password, username, nickname, school } = signUpData;
 
-      // The database trigger will use the metadata in 'options.data'
-      // to populate the new profile row.
+      console.log('🚀 Starting signup process for:', {
+        email,
+        username,
+        nickname,
+        school,
+      });
+
+      // 1. Create the auth user with metadata (trigger will handle everything)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            username,
-            nickname: nickname || null,
+            username: username.toLowerCase(),
+            nickname: nickname || username,
             school: school || null,
           },
         },
       });
 
       if (authError) {
+        console.error('❌ Auth signup error:', authError);
+        if (authError.message.includes('User already registered')) {
+          return {
+            data: null,
+            error: 'An account with this email already exists.',
+            success: false,
+          };
+        }
+        if (authError.message.includes('Database error')) {
+          return {
+            data: null,
+            error: 'There was a database issue. Please try again later.',
+            success: false,
+          };
+        }
         return { data: null, error: authError.message, success: false };
       }
+
       if (!authData.user) {
+        console.error('❌ No user returned from auth signup');
         return { data: null, error: 'User creation failed', success: false };
       }
 
-      // Create the user object
+      console.log('✅ Auth user created successfully:', authData.user.id);
+      console.log('⏳ Waiting for trigger to create profile...');
+
+      // 2. Wait for the trigger to create the profile (with retries)
+      let profileData = null;
+      let attempts = 0;
+      const maxAttempts = 8;
+
+      while (!profileData && attempts < maxAttempts) {
+        attempts++;
+        console.log(`🔍 Profile fetch attempt ${attempts}/${maxAttempts}`);
+
+        // Wait before each attempt
+        await new Promise((resolve) => setTimeout(resolve, attempts * 200));
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (!error && data) {
+          profileData = data;
+          console.log('✅ Profile found:', data);
+          break;
+        } else if (error && error.code !== 'PGRST116') {
+          // PGRST116 = no rows found, other errors are more serious
+          console.error(`❌ Profile fetch error (attempt ${attempts}):`, error);
+        }
+      }
+
+      if (!profileData) {
+        console.error(
+          '❌ Profile was not created by trigger after all attempts'
+        );
+        return {
+          data: null,
+          error: 'Failed to create user profile. Please try again.',
+          success: false,
+        };
+      }
+
+      console.log(
+        '🎉 Profile created successfully by trigger:',
+        profileData.username
+      );
+
+      // 3. Create return objects
       const user: AuthUser = {
         id: authData.user.id,
         email: authData.user.email!,
@@ -179,18 +250,21 @@ export class AuthService {
         createdAt: authData.user.created_at,
       };
 
-      // Create a mock profile (the real one will be created by the trigger)
       const profile: UserProfile = {
-        id: authData.user.id,
-        username: username,
-        nickname: nickname || '',
-        email: email,
-        avatarUrl: '',
-        school: school || '',
-        isPublic: true,
-        createdAt: authData.user.created_at,
-        updatedAt: authData.user.created_at,
+        id: profileData.id,
+        username: profileData.username, // Use the actual username created by trigger
+        nickname: profileData.nickname || '',
+        avatarUrl: profileData.avatar_url || '',
+        school: profileData.school || '',
+        isPublic: profileData.is_public ?? true,
+        createdAt: profileData.created_at || new Date().toISOString(),
+        updatedAt: profileData.updated_at || new Date().toISOString(),
       };
+
+      console.log(
+        '🎉 Signup completed successfully! Final username:',
+        profile.username
+      );
 
       return {
         data: { user, profile },
@@ -198,10 +272,11 @@ export class AuthService {
         success: true,
       };
     } catch (error: any) {
+      console.error('💥 Unexpected error during signup:', error);
       const errorInfo = handleDatabaseError(error, 'signUp');
       return {
         data: null,
-        error: errorInfo.message,
+        error: `Database error saving new user: ${errorInfo.message}`,
         success: false,
       };
     }

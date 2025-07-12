@@ -17,6 +17,8 @@ import { ERROR_MONITORING_CONFIG } from '../constants/config';
 import { COLORS } from '../constants/theme';
 
 // Initialize Sentry before anything else
+// Initialize Sentry before anything else
+// Initialize Sentry before anything else
 if (ERROR_MONITORING_CONFIG.ENABLED || ERROR_MONITORING_CONFIG.ENABLE_IN_DEV) {
   Sentry.init({
     dsn: ERROR_MONITORING_CONFIG.SENTRY_DSN,
@@ -36,15 +38,17 @@ if (ERROR_MONITORING_CONFIG.ENABLED || ERROR_MONITORING_CONFIG.ENABLE_IN_DEV) {
     autoSessionTracking: ERROR_MONITORING_CONFIG.AUTO_SESSION_TRACKING,
     enableNativeCrashHandling: ERROR_MONITORING_CONFIG.ENABLE_NATIVE_CRASHES,
 
-    // Integrations
+    // Integrations - conditional based on environment
     integrations: [
-      // Expo Router integration
-      Sentry.reactNavigationIntegration(),
+      // Only include navigation integration in production
+      ...(ERROR_MONITORING_CONFIG.ENVIRONMENT === 'production'
+        ? [Sentry.reactNavigationIntegration()]
+        : []),
     ],
 
-    // Filter out noisy errors
+    // Enhanced filtering for all environments
     beforeSend(event, hint) {
-      // Don't send network errors in development
+      // Filter out network errors in development
       if (ERROR_MONITORING_CONFIG.ENVIRONMENT === 'development') {
         const error = hint.originalException;
         if (
@@ -55,22 +59,59 @@ if (ERROR_MONITORING_CONFIG.ENABLED || ERROR_MONITORING_CONFIG.ENABLE_IN_DEV) {
         }
       }
 
-      // Filter out common React Native development warnings
-      if (ERROR_MONITORING_CONFIG.ENVIRONMENT === 'development') {
-        const message = event.message || '';
-        const ignoredMessages = [
-          'Warning:',
-          'VirtualizedList:',
-          'componentWillReceiveProps',
-          'componentWillMount',
-        ];
+      // Filter out common React Native development warnings and Sentry noise
+      const message = event.message || '';
+      const ignoredMessages = [
+        'Warning:',
+        'VirtualizedList:',
+        'componentWillReceiveProps',
+        'componentWillMount',
+        'Discarding transaction because its trace was not chosen to be sampled',
+        'Recording outcome',
+        'Error while fetching native frames',
+        'Touch event within element',
+        'User Interaction Tracing can not create transaction with undefined elementId',
+        'Navigation check:',
+        '[Tracing]',
+        '[TouchEvents]',
+        '[UserInteraction]',
+        '[NativeFrames]',
+      ];
 
-        if (ignoredMessages.some((ignored) => message.includes(ignored))) {
+      if (ignoredMessages.some((ignored) => message.includes(ignored))) {
+        return null;
+      }
+
+      // In development, only send actual errors (not info/debug/log levels)
+      if (ERROR_MONITORING_CONFIG.ENVIRONMENT === 'development') {
+        if (event.level && ['info', 'debug', 'log'].includes(event.level)) {
           return null;
         }
       }
 
       return event;
+    },
+
+    // Filter breadcrumbs to reduce noise
+    beforeBreadcrumb(breadcrumb) {
+      // Filter out noisy breadcrumbs
+      const noisyCategories = ['console', 'navigation', 'ui.click'];
+      const noisyMessages = [
+        'Touch event',
+        'User Interaction',
+        'Navigation check',
+        'Sentry Logger',
+      ];
+
+      if (noisyCategories.includes(breadcrumb.category || '')) {
+        return null;
+      }
+
+      if (noisyMessages.some((msg) => breadcrumb.message?.includes(msg))) {
+        return null;
+      }
+
+      return breadcrumb;
     },
 
     // Additional context

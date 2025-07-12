@@ -5,15 +5,16 @@ import { SignInData, SignUpData } from '../../../services/auth/authService';
 /**
  * Defines the mode of the authentication form.
  * 'login' - Renders email and password fields.
- * 'signup' - Renders email, username, password, and confirm password fields.
+ * 'signup' - Renders first name, email, username, password, confirm password, and optional school fields.
  */
 export type AuthFormType = 'login' | 'signup';
 
 /**
  * Defines the data structure submitted by the form.
- * It's a union of the data required for login and a subset of data for signup.
+ * For login: email and password
+ * For signup: includes all required fields including nickname (derived from firstName) and optional school
  */
-export type AuthFormData = SignInData | Omit<SignUpData, 'nickname' | 'school'>;
+export type AuthFormData = SignInData | SignUpData;
 
 /**
  * Props for the AuthForm component.

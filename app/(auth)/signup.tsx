@@ -13,20 +13,31 @@ const SignupScreen = () => {
   const router = useRouter();
 
   const handleSignup = async (data: AuthFormData) => {
-    clearError();
+    try {
+      console.log('Starting signup process with data:', data);
+      clearError();
 
-    // Type guard: Check if 'username' exists in the data object.
-    // This assures TypeScript that we have the correct data structure for signing up.
-    if ('username' in data) {
-      const result = await signUp(data as SignUpData);
+      // Type guard: Check if this is signup data (has username and nickname)
+      if ('username' in data && 'nickname' in data) {
+        console.log('Valid signup data detected, calling signUp...');
+        const result = await signUp(data as SignUpData);
 
-      if (result.success) {
-        router.replace('/(tabs)/home');
+        console.log('SignUp result:', result);
+
+        if (result.success) {
+          console.log('Signup successful, redirecting to home...');
+          router.replace('/(tabs)/home');
+        } else {
+          console.log('Signup failed:', result.error || 'Unknown error');
+          // The error should be handled by the useAuth hook and displayed in the form
+        }
+      } else {
+        // This case should ideally not be reachable in the signup flow,
+        // but it's good practice to handle it.
+        console.error('Signup form submitted without required signup fields.');
       }
-    } else {
-      // This case should ideally not be reachable in the signup flow,
-      // but it's good practice to handle it.
-      console.error('Signup form submitted without a username.');
+    } catch (err) {
+      console.error('Unexpected error during signup:', err);
     }
   };
 

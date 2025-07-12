@@ -8,9 +8,12 @@ import {
   validateEmail,
   validatePassword,
   validateUsername,
+  validateName,
 } from '../../../utils/validation';
-import { Input } from '../../core/Input'; // Use the REAL Input component
-import { Button } from '../../core/Button'; // Use the REAL Button component
+import { Input } from '../../core/Input';
+import { Button } from '../../core/Button';
+import { SchoolPicker } from '../SchoolPicker';
+import { School } from '../../../constants/data/schools';
 
 export const AuthForm: React.FC<AuthFormProps> = ({
   formType,
@@ -23,17 +26,20 @@ export const AuthForm: React.FC<AuthFormProps> = ({
   const { colors } = useTheme();
   const styles = createStyles(colors);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
 
   const isLogin = formType === 'login';
 
   const { values, errors, handleChange, handleSubmit } = useForm({
     initialValues: {
+      firstName: '',
       email: '',
       username: '',
       password: '',
       confirmPassword: '',
     },
     validators: {
+      firstName: isLogin ? undefined : validateName,
       email: validateEmail,
       username: isLogin ? undefined : validateUsername,
       password: validatePassword,
@@ -52,6 +58,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             email: data.email,
             username: data.username,
             password: data.password,
+            nickname: data.firstName, // Use firstName as initial nickname
+            school: selectedSchool?.value || undefined, // Extract school ID or set as undefined
           };
       await onSubmit(submissionData);
     },
@@ -59,6 +67,10 @@ export const AuthForm: React.FC<AuthFormProps> = ({
 
   const togglePasswordVisibility = () => {
     setIsPasswordVisible((prev) => !prev);
+  };
+
+  const handleSchoolSelect = (school: School | null) => {
+    setSelectedSchool(school);
   };
 
   return (
@@ -75,11 +87,25 @@ export const AuthForm: React.FC<AuthFormProps> = ({
       {!isLogin && (
         <View style={styles.inputContainer}>
           <Input
+            label="First Name"
+            value={values.firstName}
+            onChangeText={(text: string) => handleChange('firstName', text)}
+            error={errors.firstName}
+            autoCapitalize="words"
+            placeholder="Enter your first name"
+          />
+        </View>
+      )}
+
+      {!isLogin && (
+        <View style={styles.inputContainer}>
+          <Input
             label="Username"
             value={values.username}
             onChangeText={(text: string) => handleChange('username', text)}
             error={errors.username}
             autoCapitalize="none"
+            placeholder="Choose a username"
           />
         </View>
       )}
@@ -92,6 +118,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({
           error={errors.email}
           keyboardType="email-address"
           autoCapitalize="none"
+          placeholder="Enter your email"
         />
       </View>
 
@@ -103,6 +130,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({
           error={errors.password}
           secureTextEntry={!isPasswordVisible}
           autoCapitalize="none"
+          placeholder="Enter your password"
         />
       </View>
 
@@ -117,6 +145,18 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             error={errors.confirmPassword}
             secureTextEntry={!isPasswordVisible}
             autoCapitalize="none"
+            placeholder="Confirm your password"
+          />
+        </View>
+      )}
+
+      {!isLogin && (
+        <View style={styles.inputContainer}>
+          <SchoolPicker
+            label="School (Optional)"
+            value={selectedSchool}
+            onSelect={handleSchoolSelect}
+            placeholder="Select your school..."
           />
         </View>
       )}

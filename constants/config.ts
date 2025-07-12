@@ -243,10 +243,10 @@ export const NOTIFICATION_CONFIG = {
 // Security Configuration
 export const SECURITY_CONFIG = {
   // Password requirements
-  PASSWORD_MIN_LENGTH: 8,
-  PASSWORD_REQUIRE_UPPERCASE: true,
+  PASSWORD_MIN_LENGTH: 6,
+  PASSWORD_REQUIRE_UPPERCASE: false,
   PASSWORD_REQUIRE_LOWERCASE: true,
-  PASSWORD_REQUIRE_NUMBER: true,
+  PASSWORD_REQUIRE_NUMBER: false,
   PASSWORD_REQUIRE_SPECIAL: false,
 
   // Session management
@@ -267,26 +267,28 @@ export const ERROR_MONITORING_CONFIG = {
   // Sentry configuration
   SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
 
-  // Error reporting settings - CHANGED: Now enabled in development too!
+  // Error reporting settings - Keep enabled but optimize for development
   ENABLED: true, // Always enabled
   ENABLE_IN_DEV: true, // Enabled in development for testing
 
-  // Sample rates
+  // Sample rates - Reduced for development to minimize noise
   TRACES_SAMPLE_RATE:
-    process.env.EXPO_PUBLIC_ENVIRONMENT === 'production' ? 0.1 : 1.0,
+    process.env.EXPO_PUBLIC_ENVIRONMENT === 'production' ? 0.1 : 0.1, // Reduced from 1.0 to 0.1
   PROFILES_SAMPLE_RATE:
-    process.env.EXPO_PUBLIC_ENVIRONMENT === 'production' ? 0.1 : 1.0,
+    process.env.EXPO_PUBLIC_ENVIRONMENT === 'production' ? 0.1 : 0.1, // Reduced from 1.0 to 0.1
 
   // Session configuration
   AUTO_SESSION_TRACKING: true,
   ENABLE_NATIVE_CRASHES: true,
 
-  // Performance monitoring
-  ENABLE_AUTO_PERFORMANCE_TRACING: true,
-  ENABLE_USER_INTERACTION_TRACING: true,
+  // Performance monitoring - Conditional for development
+  ENABLE_AUTO_PERFORMANCE_TRACING:
+    process.env.EXPO_PUBLIC_ENVIRONMENT === 'production',
+  ENABLE_USER_INTERACTION_TRACING:
+    process.env.EXPO_PUBLIC_ENVIRONMENT === 'production',
 
-  // Debug settings
-  DEBUG: process.env.EXPO_PUBLIC_ENVIRONMENT !== 'production',
+  // Debug settings - Disabled in development to reduce console noise
+  DEBUG: false, // Changed: Disable debug logs even in development
 
   // Additional context
   ENVIRONMENT: process.env.EXPO_PUBLIC_ENVIRONMENT || 'development',

@@ -567,7 +567,7 @@ export type Database = {
     }
     Functions: {
       create_user_profile: {
-        Args: Record<PropertyKey, never>
+        Args: Record<PropertyKey, never> | { user_id: string }
         Returns: undefined
       }
       is_match_creator: {
