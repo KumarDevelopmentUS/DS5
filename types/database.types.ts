@@ -532,6 +532,7 @@ export type Database = {
           id: string
           is_public: boolean | null
           nickname: string | null
+          push_token: string | null
           school: string | null
           settings: Json | null
           updated_at: string | null
@@ -543,6 +544,7 @@ export type Database = {
           id: string
           is_public?: boolean | null
           nickname?: string | null
+          push_token?: string | null
           school?: string | null
           settings?: Json | null
           updated_at?: string | null
@@ -554,6 +556,7 @@ export type Database = {
           id?: string
           is_public?: boolean | null
           nickname?: string | null
+          push_token?: string | null
           school?: string | null
           settings?: Json | null
           updated_at?: string | null
