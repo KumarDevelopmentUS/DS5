@@ -1,163 +1,365 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+// app/(tabs)/home.tsx
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  RefreshControl,
+  StyleSheet,
+  Pressable,
+} from 'react-native';
+import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Layout/Screen';
 import { useAuth } from '../../hooks/auth/useAuth';
 import { Button } from '../../components/core/Button';
-import * as Sentry from '@sentry/react-native';
-import { ERROR_MONITORING_CONFIG } from '../../constants/config';
+import { Card } from '../../components/core/Card';
+import { CreationModal } from '../../components/forms/CreationModal';
+import { useTheme } from '../../contexts/ThemeContext';
+import { SPACING, TYPOGRAPHY, BORDERS } from '../../constants/theme';
+import { MESSAGES } from '../../constants/messages';
+import { MATCH_ROUTES } from '../../constants/routes';
 
 /**
- * Home Screen
+ * Home Screen - Main Dashboard
  *
- * The main landing screen for authenticated users. It currently displays a
- * welcome message and a logout button to test the authentication flow.
+ * The main landing screen for authenticated users. It acts as a dashboard,
+ * presenting a unified hub of competitive activities, including a social feed,
+ * active matches, and quick stats.
  */
 const HomeScreen = () => {
-  const { user, signOut } = useAuth();
+  const { user, profile } = useAuth();
+  const { colors } = useTheme();
+  const router = useRouter();
 
-  // Debug Sentry setup on component mount
-  useEffect(() => {
-    console.log('=== SENTRY DEBUG INFO ===');
-    console.log('Sentry available:', !!Sentry);
-    console.log('Sentry DSN configured:', !!ERROR_MONITORING_CONFIG.SENTRY_DSN);
-    console.log('Sentry enabled:', ERROR_MONITORING_CONFIG.ENABLED);
-    console.log('Sentry dev mode:', ERROR_MONITORING_CONFIG.ENABLE_IN_DEV);
-    console.log('Environment:', ERROR_MONITORING_CONFIG.ENVIRONMENT);
+  // Local state
+  const [showCreationModal, setShowCreationModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-    // Test if Sentry is actually working
-    try {
-      Sentry.captureMessage('Sentry initialization test', 'debug');
-      console.log('✅ Sentry test message sent successfully');
-    } catch (error) {
-      console.error('❌ Sentry test failed:', error);
-    }
-    console.log('========================');
+  // Mock data - in real app, these would come from custom hooks
+  const mockActiveMatches = [
+    {
+      id: '1',
+      title: 'Epic Die Game',
+      status: 'active',
+      playerCount: 4,
+      yourTeam: 'Red',
+      score: { red: 8, blue: 6 },
+      timeElapsed: '12:34',
+    },
+    {
+      id: '2',
+      title: 'Tournament Finals',
+      status: 'pending',
+      playerCount: 6,
+      yourTeam: 'Blue',
+      startTime: '2:30 PM',
+    },
+  ];
+
+  const mockQuickStats = {
+    totalMatches: 47,
+    winRate: 68,
+    currentStreak: 5,
+    bestStreak: 12,
+    totalWins: 32,
+  };
+
+  const mockRecentActivity = [
+    {
+      id: '1',
+      type: 'match_win',
+      title: 'Victory in Campus Tournament!',
+      subtitle: 'Beat Team Alpha 15-12',
+      time: '2 hours ago',
+      icon: '🏆',
+    },
+    {
+      id: '2',
+      type: 'achievement',
+      title: 'Achievement Unlocked!',
+      subtitle: 'Hit Streak Master - 10 consecutive hits',
+      time: '1 day ago',
+      icon: '🎯',
+    },
+    {
+      id: '3',
+      type: 'friend_activity',
+      title: 'Sarah just won a match',
+      subtitle: 'Dominated in "Friday Night Games"',
+      time: '2 days ago',
+      icon: '👥',
+    },
+  ];
+
+  // Handlers
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    // Simulate refresh - in real app, refresh all data
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
   }, []);
 
-  const testSentryError = () => {
-    console.log('🚨 Testing Sentry error...');
-    try {
-      Sentry.captureException(new Error('First error'));
-      console.log('✅ Error sent to Sentry successfully');
-    } catch (error) {
-      console.error('❌ Failed to send error to Sentry:', error);
-    }
+  const handleCreateAction = () => {
+    setShowCreationModal(true);
   };
 
-  const testSentryMessage = () => {
-    console.log('📝 Testing Sentry message...');
-    try {
-      Sentry.captureMessage('Test message from home screen', 'info');
-      console.log('✅ Message sent to Sentry successfully');
-    } catch (error) {
-      console.error('❌ Failed to send message to Sentry:', error);
-    }
+  const handleJoinMatch = () => {
+    // Navigate to join match screen or show room code input
+    router.push('/match/join');
   };
 
-  const testSentryUserContext = () => {
-    console.log('👤 Testing Sentry with user context...');
-    try {
-      // Set user context for better error tracking
-      Sentry.setUser({
-        id: user?.id,
-        email: user?.email,
-      });
-      Sentry.captureException(new Error('Error with user context'));
-      console.log('✅ Error with user context sent to Sentry successfully');
-    } catch (error) {
-      console.error(
-        '❌ Failed to send error with user context to Sentry:',
-        error
-      );
-    }
+  const handleViewMatch = (matchId: string) => {
+    router.push(MATCH_ROUTES.live(matchId));
   };
 
-  const testCriticalError = () => {
-    console.log('💥 Testing critical error...');
-    try {
-      Sentry.captureException(new Error('Critical test error'), {
-        level: 'fatal',
-        tags: {
-          section: 'home_screen',
-          test: 'critical_error',
-        },
-        extra: {
-          user_id: user?.id,
-          timestamp: new Date().toISOString(),
-        },
-      });
-      console.log('✅ Critical error sent to Sentry successfully');
-    } catch (error) {
-      console.error('❌ Failed to send critical error to Sentry:', error);
-    }
+  const handleViewStats = () => {
+    router.push('/(tabs)/profile');
   };
 
-  return (
-    <Screen>
-      <View style={styles.container}>
-        <Text style={styles.title}>Welcome Home!</Text>
-        {user && (
-          <Text style={styles.emailText}>
-            You are logged in as: {user.email}
-          </Text>
-        )}
+  const handleViewHistory = () => {
+    router.push('/match/history');
+  };
 
-        {/* Sentry Configuration Info */}
-        <View style={styles.configSection}>
-          <Text style={styles.sectionTitle}>🔧 Sentry Config</Text>
-          <Text style={styles.configText}>
-            Enabled: {ERROR_MONITORING_CONFIG.ENABLED ? '✅' : '❌'}
+  // Render welcome header
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <View style={styles.welcomeSection}>
+        <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
+          Welcome back,
+        </Text>
+        <Text style={[styles.userNameText, { color: colors.text }]}>
+          {profile?.nickname ||
+            profile?.username ||
+            user?.email?.split('@')[0] ||
+            'Player'}
+          !
+        </Text>
+      </View>
+
+      <View style={styles.headerActions}>
+        <Button
+          variant="primary"
+          size="medium"
+          onPress={handleCreateAction}
+          style={styles.createButton}
+          testID="home-create-button"
+        >
+          {MESSAGES.GENERAL.CREATE}
+        </Button>
+
+        <Button
+          variant="outline"
+          size="medium"
+          onPress={handleJoinMatch}
+          style={styles.joinButton}
+          testID="home-join-button"
+        >
+          {MESSAGES.BUTTON_LABELS.JOIN_MATCH}
+        </Button>
+      </View>
+    </View>
+  );
+
+  // Render quick stats section
+  const renderQuickStats = () => (
+    <Card style={styles.sectionCard} pressable onPress={handleViewStats}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Quick Stats
+        </Text>
+        <Text style={[styles.sectionAction, { color: colors.primary }]}>
+          View All
+        </Text>
+      </View>
+
+      <View style={styles.statsGrid}>
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: colors.text }]}>
+            {mockQuickStats.totalMatches}
           </Text>
-          <Text style={styles.configText}>
-            Dev Mode: {ERROR_MONITORING_CONFIG.ENABLE_IN_DEV ? '✅' : '❌'}
-          </Text>
-          <Text style={styles.configText}>
-            DSN: {ERROR_MONITORING_CONFIG.SENTRY_DSN ? '✅ Set' : '❌ Missing'}
-          </Text>
-          <Text style={styles.configText}>
-            Environment: {ERROR_MONITORING_CONFIG.ENVIRONMENT}
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Matches
           </Text>
         </View>
 
-        {/* Sentry Test Section */}
-        <View style={styles.testSection}>
-          <Text style={styles.sectionTitle}>🚨 Sentry Testing</Text>
-
-          <View style={styles.buttonContainer}>
-            <Button onPress={testSentryError}>
-              <Text>Try! (Test Error)</Text>
-            </Button>
-          </View>
-
-          <View style={styles.buttonContainer}>
-            <Button onPress={testSentryMessage}>
-              <Text>Test Message</Text>
-            </Button>
-          </View>
-
-          <View style={styles.buttonContainer}>
-            <Button onPress={testSentryUserContext}>
-              <Text>Test with User Context</Text>
-            </Button>
-          </View>
-
-          <View style={styles.buttonContainer}>
-            <Button onPress={testCriticalError}>
-              <Text>Test Critical Error</Text>
-            </Button>
-          </View>
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: colors.success }]}>
+            {mockQuickStats.winRate}%
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Win Rate
+          </Text>
         </View>
 
-        {/* Auth Section */}
-        <View style={styles.authSection}>
-          <Text style={styles.sectionTitle}>🔐 Authentication</Text>
-          <View style={styles.buttonContainer}>
-            <Button onPress={signOut}>
-              <Text>Log Out</Text>
-            </Button>
-          </View>
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: colors.warning }]}>
+            {mockQuickStats.currentStreak}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Current Streak
+          </Text>
+        </View>
+
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: colors.primary }]}>
+            {mockQuickStats.bestStreak}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Best Streak
+          </Text>
         </View>
       </View>
+    </Card>
+  );
+
+  // Render active matches section
+  const renderActiveMatches = () => (
+    <Card style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Active Matches
+        </Text>
+        <Pressable onPress={handleViewHistory}>
+          <Text style={[styles.sectionAction, { color: colors.primary }]}>
+            View History
+          </Text>
+        </Pressable>
+      </View>
+
+      {mockActiveMatches.length > 0 ? (
+        <View style={styles.matchesList}>
+          {mockActiveMatches.map((match) => (
+            <Pressable
+              key={match.id}
+              style={[styles.matchCard, { backgroundColor: colors.surface }]}
+              onPress={() => handleViewMatch(match.id)}
+            >
+              <View style={styles.matchHeader}>
+                <Text style={[styles.matchTitle, { color: colors.text }]}>
+                  {match.title}
+                </Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    {
+                      backgroundColor:
+                        match.status === 'active'
+                          ? colors.success
+                          : colors.warning,
+                    },
+                  ]}
+                >
+                  <Text style={styles.statusText}>
+                    {match.status === 'active' ? 'LIVE' : 'PENDING'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.matchDetails}>
+                <Text
+                  style={[styles.matchInfo, { color: colors.textSecondary }]}
+                >
+                  {match.playerCount} players • Team {match.yourTeam}
+                </Text>
+
+                {match.status === 'active' && match.score ? (
+                  <Text style={[styles.matchScore, { color: colors.text }]}>
+                    {match.score.red} - {match.score.blue} • {match.timeElapsed}
+                  </Text>
+                ) : (
+                  <Text
+                    style={[styles.matchTime, { color: colors.textSecondary }]}
+                  >
+                    Starts at {match.startTime}
+                  </Text>
+                )}
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      ) : (
+        <View style={styles.emptyState}>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            {MESSAGES.EMPTY_STATES.NO_ACTIVE_MATCHES}
+          </Text>
+          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+            {MESSAGES.EMPTY_STATES.START_FIRST_MATCH}
+          </Text>
+        </View>
+      )}
+    </Card>
+  );
+
+  // Render recent activity feed
+  const renderRecentActivity = () => (
+    <Card style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Recent Activity
+        </Text>
+        <Pressable onPress={() => router.push('/(tabs)/social')}>
+          <Text style={[styles.sectionAction, { color: colors.primary }]}>
+            View Feed
+          </Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.activityList}>
+        {mockRecentActivity.map((activity) => (
+          <View key={activity.id} style={styles.activityItem}>
+            <Text style={styles.activityIcon}>{activity.icon}</Text>
+            <View style={styles.activityContent}>
+              <Text style={[styles.activityTitle, { color: colors.text }]}>
+                {activity.title}
+              </Text>
+              <Text
+                style={[
+                  styles.activitySubtitle,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                {activity.subtitle}
+              </Text>
+              <Text
+                style={[styles.activityTime, { color: colors.textSecondary }]}
+              >
+                {activity.time}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </Card>
+  );
+
+  return (
+    <Screen testID="home-screen" style={{ backgroundColor: colors.background }}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
+        {renderHeader()}
+        {renderQuickStats()}
+        {renderActiveMatches()}
+        {renderRecentActivity()}
+      </ScrollView>
+
+      {/* Creation Modal */}
+      <CreationModal
+        visible={showCreationModal}
+        onClose={() => setShowCreationModal(false)}
+        testID="home-creation-modal"
+      />
     </Screen>
   );
 };
@@ -165,51 +367,171 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  content: {
+    padding: SPACING.md,
+    paddingBottom: SPACING.xl,
+  },
+
+  // Header
+  header: {
+    marginBottom: SPACING.lg,
+  },
+  welcomeSection: {
+    marginBottom: SPACING.md,
+  },
+  welcomeText: {
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  userNameText: {
+    fontSize: TYPOGRAPHY.sizes.title2,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    marginTop: SPACING.xs,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  createButton: {
+    flex: 1,
+  },
+  joinButton: {
+    flex: 1,
+  },
+
+  // Sections
+  sectionCard: {
+    marginBottom: SPACING.lg,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  emailText: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
-  },
-  configSection: {
-    width: '100%',
-    marginBottom: 20,
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: 15,
-    borderRadius: 8,
-  },
-  configText: {
-    fontSize: 12,
-    color: '#333',
-    marginBottom: 5,
-  },
-  testSection: {
-    width: '100%',
-    marginBottom: 30,
-    alignItems: 'center',
-  },
-  authSection: {
-    width: '100%',
-    alignItems: 'center',
+    marginBottom: SPACING.md,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 15,
+    fontSize: TYPOGRAPHY.sizes.headline,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  sectionAction: {
+    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+
+  // Stats
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: TYPOGRAPHY.sizes.title2,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    marginBottom: SPACING.xs,
+  },
+  statLabel: {
+    fontSize: TYPOGRAPHY.sizes.caption1,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
     textAlign: 'center',
   },
-  buttonContainer: {
-    width: '80%',
-    marginBottom: 10,
+
+  // Matches
+  matchesList: {
+    gap: SPACING.sm,
+  },
+  matchCard: {
+    padding: SPACING.md,
+    borderRadius: BORDERS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  matchHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  matchTitle: {
+    fontSize: TYPOGRAPHY.sizes.callout,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: SPACING.xxs,
+    borderRadius: BORDERS.sm,
+  },
+  statusText: {
+    fontSize: TYPOGRAPHY.sizes.caption2,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    color: '#FFFFFF',
+  },
+  matchDetails: {
+    gap: SPACING.xxs,
+  },
+  matchInfo: {
+    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  matchScore: {
+    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  matchTime: {
+    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+
+  // Activity
+  activityList: {
+    gap: SPACING.md,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  activityIcon: {
+    fontSize: 24,
+    marginRight: SPACING.md,
+    marginTop: SPACING.xxs,
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: TYPOGRAPHY.sizes.callout,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    marginBottom: SPACING.xxs,
+  },
+  activitySubtitle: {
+    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    marginBottom: SPACING.xxs,
+  },
+  activityTime: {
+    fontSize: TYPOGRAPHY.sizes.caption1,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+
+  // Empty state
+  emptyState: {
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  emptyText: {
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    textAlign: 'center',
+    marginBottom: SPACING.xs,
+  },
+  emptySubtext: {
+    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'center',
   },
 });
 
