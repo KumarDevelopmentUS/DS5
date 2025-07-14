@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { FeedProps } from './Feed.types';
 import { FeedItem } from './FeedItem';
-import { EmptyState } from '../../Layout/LoadingState';
+import { EmptyState } from '../../Layout/LoadingStates';
 import { useTheme } from '../../../hooks/ui/useTheme';
 import { FeedItem as FeedItemType } from '../../../hooks/social/useCombinedFeed';
 
