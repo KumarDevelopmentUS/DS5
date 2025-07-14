@@ -1,14 +1,14 @@
 // hooks/analytics/usePlayerStats.ts
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../auth/useAuth';
-import { PlayerStats, Achievement } from '../../types/models';
-import { Tables } from '../../types/database.types';
 import { supabase } from '../../services/database/databaseService';
+import { Tables } from '../../types/database.types';
+import { Achievement, PlayerStats } from '../../types/models';
 import {
-  calculateWinRate,
-  calculateHitRate,
   calculateCatchRate,
+  calculateHitRate,
+  calculateWinRate,
 } from '../../utils/calculations';
+import { useAuth } from '../auth/useAuth';
 
 // Query keys for React Query
 const QUERY_KEYS = {
