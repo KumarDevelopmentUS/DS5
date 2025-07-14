@@ -166,7 +166,7 @@ export const ERROR_MESSAGES = {
   INVALID_EMAIL: 'Please enter a valid email address.',
   INVALID_USERNAME:
     'Username must be 3-20 characters and contain only letters, numbers, and underscores.',
-  PASSWORD_TOO_SHORT: 'Password must be at least 8 characters long.',
+  PASSWORD_TOO_SHORT: 'Password must be at least 6 characters long.',
   PASSWORD_MISMATCH: 'Passwords do not match.',
   INVALID_PHONE: 'Please enter a valid phone number.',
   INVALID_URL: 'Please enter a valid URL.',
