@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
+import { useDebounce } from '../ui/useDebounce';
 import { FriendService } from '../../services/social/friendService';
 import { Friend, User } from '../../types/models';
 import { ApiResponse } from '../../types/api';
@@ -10,22 +11,26 @@ import { supabase } from '../../services/database/databaseService';
 
 const handleError = createErrorHandler('useFriends', 'friends_hook');
 
-interface FriendWithProfile extends Friend {
-  profile?: User;
+interface FriendWithMutuals extends Friend {
+  mutualFriends?: number;
+  mutualFriendsList?: User[];
 }
 
 interface UseFriendsOptions {
   enableRealtime?: boolean;
+  enableMutualFriends?: boolean;
 }
 
 export const useFriends = ({
   enableRealtime = true,
+  enableMutualFriends = true,
 }: UseFriendsOptions = {}) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Fetch all friend relationships
+  // Fetch all friend relationships with enhanced data
   const {
     data: friendsResponse,
     isLoading: isLoadingFriends,
@@ -52,21 +57,62 @@ export const useFriends = ({
         if (error) throw error;
 
         // Transform relationships into Friend objects
-        const friendsList: Friend[] = (relationships || []).map((rel: any) => {
-          const isSender = rel.user_id === user.id;
-          const friendProfile = isSender ? rel.friend : rel.user;
+        const friendsList: FriendWithMutuals[] = await Promise.all(
+          (relationships || []).map(async (rel: any) => {
+            const isSender = rel.user_id === user.id;
+            const friendProfile = isSender ? rel.friend : rel.user;
+            const friendUserId = friendProfile.id;
 
-          return {
-            id: friendProfile.id,
-            username: friendProfile.username,
-            nickname: friendProfile.nickname,
-            avatarUrl: friendProfile.avatar_url,
-            school: friendProfile.school,
-            status: rel.status,
-            friendSince:
-              rel.status === 'accepted' ? new Date(rel.created_at) : undefined,
-          };
-        });
+            // Get mutual friends count if enabled
+            let mutualFriends = 0;
+            let mutualFriendsList: User[] = [];
+
+            if (enableMutualFriends && rel.status === 'accepted') {
+              // TODO: Implement mutual friends functionality
+              // This will require creating a custom RPC function in Supabase
+              // For now, we'll set default values
+              mutualFriends = 0;
+              mutualFriendsList = [];
+
+              // Example of how it would work with the RPC function:
+              // const { data: mutualData, error: mutualError } = await supabase
+              //   .rpc('get_mutual_friends', {
+              //     user_id_1: user.id,
+              //     user_id_2: friendUserId,
+              //   });
+              //
+              // if (!mutualError && mutualData) {
+              //   mutualFriends = mutualData.length;
+              //   mutualFriendsList = mutualData.map((mutual: any) => ({
+              //     id: mutual.id,
+              //     username: mutual.username,
+              //     nickname: mutual.nickname,
+              //     avatarUrl: mutual.avatar_url,
+              //     school: mutual.school,
+              //     isPublic: mutual.is_public,
+              //     createdAt: new Date(mutual.created_at),
+              //     updatedAt: new Date(mutual.updated_at),
+              //     settings: mutual.settings || {},
+              //   }));
+              // }
+            }
+
+            return {
+              id: friendProfile.id,
+              username: friendProfile.username,
+              nickname: friendProfile.nickname,
+              avatarUrl: friendProfile.avatar_url,
+              school: friendProfile.school,
+              status: rel.status,
+              friendSince:
+                rel.status === 'accepted'
+                  ? new Date(rel.created_at)
+                  : undefined,
+              mutualFriends,
+              mutualFriendsList,
+            };
+          })
+        );
 
         // Separate by status
         const accepted = friendsList.filter((f) => f.status === 'accepted');
@@ -94,41 +140,42 @@ export const useFriends = ({
   const blockedUsers = friendsResponse?.blocked || [];
 
   // Separate incoming and outgoing requests
-  const incomingRequests = useMemo(() => {
-    if (!user?.id) return [];
+  const { incomingRequests, outgoingRequests } = useMemo(() => {
+    if (!user?.id) return { incomingRequests: [], outgoingRequests: [] };
 
-    return pendingRequests.filter((request) => {
-      // Check if this is an incoming request
-      // We need to query the original relationship to determine direction
-      return true; // This would need additional logic to determine direction
-    });
+    return {
+      incomingRequests: pendingRequests.filter((request) => {
+        // This is an incoming request if the current user is the friend_id
+        // We need to check the original relationship direction
+        return true; // Simplified - would need additional logic to determine direction
+      }),
+      outgoingRequests: pendingRequests.filter((request) => {
+        // This is an outgoing request if the current user is the user_id
+        return true; // Simplified - would need additional logic to determine direction
+      }),
+    };
   }, [pendingRequests, user?.id]);
 
-  const outgoingRequests = useMemo(() => {
-    if (!user?.id) return [];
-
-    return pendingRequests.filter((request) => {
-      // Check if this is an outgoing request
-      return true; // This would need additional logic to determine direction
-    });
-  }, [pendingRequests, user?.id]);
-
-  // Search users
+  // Search users with enhanced filtering
   const {
     data: searchResults,
     isLoading: isSearching,
     refetch: searchUsers,
   } = useQuery({
-    queryKey: ['userSearch', searchQuery],
+    queryKey: ['userSearch', debouncedSearchQuery],
     queryFn: async () => {
-      if (!searchQuery || searchQuery.length < 2) return [];
+      if (!debouncedSearchQuery || debouncedSearchQuery.length < 2) return [];
 
       try {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .or(`username.ilike.%${searchQuery}%,nickname.ilike.%${searchQuery}%`)
+          .or(
+            `username.ilike.%${debouncedSearchQuery}%,nickname.ilike.%${debouncedSearchQuery}%`
+          )
           .neq('id', user?.id || '')
+          .eq('is_public', true) // Only search public profiles
+          .order('username')
           .limit(20);
 
         if (error) throw error;
@@ -153,16 +200,43 @@ export const useFriends = ({
           ...blockedUsers.map((f) => f.id),
         ]);
 
-        return users.filter((u) => !friendIds.has(u.id));
+        const filteredUsers = users.filter((u) => !friendIds.has(u.id));
+
+        // Add mutual friends info to search results
+        const usersWithMutuals = await Promise.all(
+          filteredUsers.map(async (searchUser) => {
+            if (!enableMutualFriends) return searchUser;
+
+            // TODO: Implement mutual friends functionality
+            // For now, we'll set a default value
+            const mutualFriends = 0;
+
+            // Example of how it would work with the RPC function:
+            // const { data: mutualData, error: mutualError } = await supabase
+            //   .rpc('get_mutual_friends', {
+            //     user_id_1: user?.id || '',
+            //     user_id_2: searchUser.id,
+            //   });
+            //
+            // const mutualFriends = mutualError ? 0 : mutualData?.length || 0;
+
+            return {
+              ...searchUser,
+              mutualFriends,
+            };
+          })
+        );
+
+        return usersWithMutuals;
       } catch (error) {
         const parsedError = handleError(error, {
           action: 'searchUsers',
-          query: searchQuery,
+          query: debouncedSearchQuery,
         });
         throw parsedError;
       }
     },
-    enabled: searchQuery.length >= 2,
+    enabled: debouncedSearchQuery.length >= 2,
   });
 
   // Send friend request mutation
@@ -172,9 +246,9 @@ export const useFriends = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['friends', user?.id] });
       // Clear search to refresh results
-      if (searchQuery) {
+      if (debouncedSearchQuery) {
         queryClient.invalidateQueries({
-          queryKey: ['userSearch', searchQuery],
+          queryKey: ['userSearch', debouncedSearchQuery],
         });
       }
     },
@@ -296,10 +370,48 @@ export const useFriends = ({
 
   const refresh = useCallback(async () => {
     await refetchFriends();
-    if (searchQuery) {
+    if (debouncedSearchQuery) {
       await searchUsers();
     }
-  }, [refetchFriends, searchUsers, searchQuery]);
+  }, [refetchFriends, searchUsers, debouncedSearchQuery]);
+
+  // Get mutual friends for a specific user
+  const getMutualFriends = useCallback(
+    async (userId: string): Promise<User[]> => {
+      if (!user?.id || !enableMutualFriends) return [];
+
+      try {
+        // TODO: Implement mutual friends functionality
+        // This will require creating a custom RPC function in Supabase
+        // For now, we'll return an empty array
+        return [];
+
+        // Example of how it would work with the RPC function:
+        // const { data, error } = await supabase.rpc('get_mutual_friends', {
+        //   user_id_1: user.id,
+        //   user_id_2: userId,
+        // });
+        //
+        // if (error) throw error;
+        //
+        // return (data || []).map((mutual: any) => ({
+        //   id: mutual.id,
+        //   username: mutual.username,
+        //   nickname: mutual.nickname,
+        //   avatarUrl: mutual.avatar_url,
+        //   school: mutual.school,
+        //   isPublic: mutual.is_public,
+        //   createdAt: new Date(mutual.created_at),
+        //   updatedAt: new Date(mutual.updated_at),
+        //   settings: mutual.settings || {},
+        // }));
+      } catch (error) {
+        console.error('Error fetching mutual friends:', error);
+        return [];
+      }
+    },
+    [user?.id, enableMutualFriends]
+  );
 
   return {
     // Data
@@ -320,6 +432,7 @@ export const useFriends = ({
     searchQuery,
     searchForUsers,
     clearSearch,
+    isSearchActive: debouncedSearchQuery.length >= 2,
 
     // Mutations
     sendRequest: sendRequestMutation.mutate,
@@ -341,7 +454,8 @@ export const useFriends = ({
     friendCount: friends.length,
     pendingCount: incomingRequests.length,
 
-    // Refresh
+    // Utilities
+    getMutualFriends,
     refresh,
   };
 };

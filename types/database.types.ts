@@ -573,6 +573,32 @@ export type Database = {
         Args: Record<PropertyKey, never> | { user_id: string }
         Returns: undefined
       }
+      get_friend_request_direction: {
+        Args: { current_user_id: string; other_user_id: string }
+        Returns: string
+      }
+      get_friendship_status: {
+        Args: { user_id_1: string; user_id_2: string }
+        Returns: {
+          status: string
+          direction: string
+          created_at: string
+        }[]
+      }
+      get_mutual_friends: {
+        Args: { user_id_1: string; user_id_2: string }
+        Returns: {
+          id: string
+          username: string
+          nickname: string
+          avatar_url: string
+          school: string
+          is_public: boolean
+          created_at: string
+          updated_at: string
+          settings: Json
+        }[]
+      }
       is_match_creator: {
         Args: { target_match_id: string; current_user_id: string }
         Returns: boolean
