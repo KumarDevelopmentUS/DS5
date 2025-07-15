@@ -12,6 +12,7 @@ export type MembershipStatus = 'pending' | 'active' | 'banned';
 export interface CommunityMembership {
   communityId: string;
   userId: string;
+  user: User;
   role: 'member' | 'moderator' | 'admin';
   status: MembershipStatus;
   joinedAt: Date;
