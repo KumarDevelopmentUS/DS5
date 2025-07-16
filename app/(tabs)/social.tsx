@@ -1,55 +1,54 @@
 // app/(tabs)/social.tsx
-import React, { useState, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  RefreshControl,
-  TextInput,
-  ActivityIndicator,
-} from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 // Layout Components
-import { Screen } from '../../components/Layout/Screen';
 import {
   EmptyState,
   NoCommunitiesEmptyState,
   NoFriendsEmptyState,
   Spinner,
 } from '../../components/Layout/LoadingStates';
+import { Screen } from '../../components/Layout/Screen';
 
 // Core Components
+import { Badge } from '../../components/core/Badge';
 import { Button } from '../../components/core/Button';
 import { Card } from '../../components/core/Card';
-import { Badge } from '../../components/core/Badge';
 
 // Social Components
 import { CommunityCard } from '../../components/social/community';
-import FriendCard from '../../components/social/Friends/FriendCard';
 import { Feed } from '../../components/social/Feed';
+import FriendCard from '../../components/social/Friends/FriendCard';
 
 // Hooks
 import { useAuth } from '../../hooks/auth/useAuth';
-import { useTheme } from '../../hooks/ui/useTheme';
 import { useFriends } from '../../hooks/social/useFriends';
 import { useDebounce } from '../../hooks/ui/useDebounce';
+import { useTheme } from '../../hooks/ui/useTheme';
 
 // Services
 // import { PostService } from '../../services/social/postService'; // Commented out as it's a TODO
 
 // Constants
-import { SPACING, TYPOGRAPHY, BORDERS } from '../../constants/theme';
 import { SOCIAL_ROUTES } from '../../constants/routes';
+import { BORDERS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 
 // Types
-import { Community, Post, Friend } from '../../types/models';
 import { FeedItem } from '../../hooks/social/useCombinedFeed';
 import { supabase } from '../../services/database/databaseService';
+import { Community, Friend, Post } from '../../types/models';
 
 // Helper to map Supabase community data to our Community type
 const mapSupabaseToCommunity = (data: any): Community => ({
@@ -620,20 +619,22 @@ const SocialScreen = () => {
     }
 
     // Transform posts to FeedItem format
-    const feedItems: FeedItem[] = posts.map((post: Post) => ({
-      id: post.id,
-      type: 'post',
-      timestamp: post.createdAt,
-      user: post.author,
-      data: {
-        postId: post.id,
-        title: post.title,
-        content: post.content,
-        communityName: post.community?.name,
-        voteCount: post.voteCount,
-        commentCount: post.commentCount,
-      },
-    }));
+    const feedItems: FeedItem[] = posts
+      .filter((post) => post.author && post.community) // Also ensure community exists
+      .map((post: Post) => ({
+        id: post.id,
+        type: 'post',
+        timestamp: post.createdAt,
+        user: post.author,
+        userId: post.author!.id,
+        data: {
+          postId: post.id,
+          content: post.content,
+          communityId: post.community!.id, // Add the required communityId
+          communityName: post.community?.name,
+          createdAt: post.createdAt, // Add the required createdAt
+        },
+      }));
 
     return (
       <Feed
