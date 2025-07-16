@@ -86,8 +86,8 @@ export const validatePassword = (password: string): ValidationResult => {
   }
 
   // Maximum length check (reasonable upper limit)
-  if (password.length > 128) {
-    errors.push('Password is too long (maximum 128 characters)');
+  if (password.length > 20) {
+    errors.push('Password is too long (maximum 20 characters)');
   }
 
   // Uppercase letter requirement (from config)
