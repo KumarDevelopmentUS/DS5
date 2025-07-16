@@ -1,144 +1,446 @@
 // components/forms/MatchForm/MatchForm.tsx
-import React, { useCallback, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
+  TouchableOpacity,
+  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  StyleSheet,
+  Switch,
 } from 'react-native';
-import { Button } from '../../core/Button/Button';
-import { Screen } from '../../Layout/Screen/Screen';
-import MatchFormField from './MatchFormField';
-import GameSettingsSection from './GameSettingsSection';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
-import { BUTTON_LABELS, PLACEHOLDERS } from '../../../constants/messages';
-import type { MatchFormProps } from './MatchForm.types';
+import { MatchFormProps, MatchFormData } from './MatchForm.types';
+import { useTheme } from '../../../hooks/ui/useTheme';
+import { validateMatchTitle } from '../../../utils/validation';
+import { Input } from '../../core/Input';
+import { Button } from '../../core/Button';
+import { MATCH_SETTINGS } from '../../../constants/game';
+import { PLACEHOLDERS } from '../../../constants/messages';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '../../../constants/theme';
 
 /**
- * Main Match Creation Form Component
+ * Match Creation Form - Simplified approach that works like AuthForm
  *
- * A single-screen form that allows users to create a new match with all
- * necessary settings. Designed for optimal user experience with real-time
- * validation and clear visual hierarchy.
- *
- * OPTIMIZED with useMemo and useCallback to prevent unnecessary re-renders
+ * Key differences from the broken version:
+ * - Uses useState instead of complex useForm hook
+ * - Updates only when user finishes editing (onBlur/onEndEditing)
+ * - No complex prop passing that breaks
+ * - Self-contained and simple
  */
-const MatchForm: React.FC<MatchFormProps> = ({
-  formData,
-  errors,
-  isCreating,
-  isFormValid,
-  onUpdateField,
-  onCreateMatch,
-  onClearError,
+export const MatchForm: React.FC<MatchFormProps> = ({
+  onSubmit,
+  loading,
+  serverError,
+  onCancel,
 }) => {
-  // Create stable handlers using useCallback with proper dependencies
-  const titleHandlers = useMemo(
-    () => ({
-      onChange: (value: string) => onUpdateField('title', value),
-      onClearError: () => onClearError('title'),
-    }),
-    [onUpdateField, onClearError]
-  );
+  const { colors } = useTheme();
 
-  const descriptionHandlers = useMemo(
-    () => ({
-      onChange: (value: string) => onUpdateField('description', value),
-      onClearError: () => onClearError('description'),
-    }),
-    [onUpdateField, onClearError]
-  );
+  // Simple state management - like AuthForm but simpler
+  const [formData, setFormData] = useState<MatchFormData>({
+    title: '',
+    description: '',
+    location: '',
+    scoreLimit: MATCH_SETTINGS.DEFAULT_SCORE_LIMIT,
+    winByTwo: MATCH_SETTINGS.DEFAULT_WIN_BY_TWO,
+    sinkPoints: MATCH_SETTINGS.DEFAULT_SINK_POINTS as 3 | 5,
+    isPublic: false,
+  });
 
-  const locationHandlers = useMemo(
-    () => ({
-      onChange: (value: string) => onUpdateField('location', value),
-      onClearError: () => onClearError('location'),
-    }),
-    [onUpdateField, onClearError]
-  );
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof MatchFormData, string>>
+  >({});
 
-  const gameSettingsHandlers = useMemo(
-    () => ({
-      onScoreLimitChange: (value: number) => onUpdateField('scoreLimit', value),
-      onWinByTwoChange: (value: boolean) => onUpdateField('winByTwo', value),
-      onSinkPointsChange: (value: 3 | 5) => onUpdateField('sinkPoints', value),
-      onIsPublicChange: (value: boolean) => onUpdateField('isPublic', value),
-    }),
-    [onUpdateField]
-  );
+  // Validate a single field
+  const validateField = (
+    field: keyof MatchFormData,
+    value: any
+  ): string | undefined => {
+    switch (field) {
+      case 'title':
+        const titleResult = validateMatchTitle(value);
+        return titleResult.isValid ? undefined : titleResult.error;
+      case 'description':
+        if (value && value.length > 500) {
+          return 'Description must be less than 500 characters';
+        }
+        return undefined;
+      case 'location':
+        if (value && value.length > 100) {
+          return 'Location must be less than 100 characters';
+        }
+        return undefined;
+      case 'scoreLimit':
+        if (!MATCH_SETTINGS.SCORE_LIMIT_OPTIONS.includes(value)) {
+          return 'Please select a valid score limit';
+        }
+        return undefined;
+      case 'sinkPoints':
+        if (!MATCH_SETTINGS.SINK_POINTS_OPTIONS.includes(value)) {
+          return 'Please select valid sink points';
+        }
+        return undefined;
+      default:
+        return undefined;
+    }
+  };
+
+  // Update field value and clear error
+  const updateField = (field: keyof MatchFormData, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  // Validate field when user finishes editing (like AuthForm)
+  const handleFieldBlur = (field: keyof MatchFormData) => {
+    const error = validateField(field, formData[field]);
+    if (error) {
+      setErrors((prev) => ({ ...prev, [field]: error }));
+    }
+  };
+
+  // Handle form submission
+  const handleSubmit = async () => {
+    // Validate all fields
+    const newErrors: Partial<Record<keyof MatchFormData, string>> = {};
+    let hasErrors = false;
+
+    (Object.keys(formData) as Array<keyof MatchFormData>).forEach((field) => {
+      const error = validateField(field, formData[field]);
+      if (error) {
+        newErrors[field] = error;
+        hasErrors = true;
+      }
+    });
+
+    setErrors(newErrors);
+
+    if (!hasErrors) {
+      await onSubmit(formData);
+    }
+  };
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: SPACING.md,
+      paddingTop: SPACING.lg,
+      paddingBottom: SPACING.xl,
+    },
+    formContainer: {
+      width: '100%',
+    },
+    title: {
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+      fontSize: TYPOGRAPHY.sizes.largeTitle,
+      color: colors.text,
+      marginBottom: SPACING.sm,
+      textAlign: 'center',
+    },
+    subtitle: {
+      fontFamily: TYPOGRAPHY.fontFamily.regular,
+      fontSize: TYPOGRAPHY.sizes.body,
+      color: colors.textSecondary,
+      marginBottom: SPACING.xl,
+      textAlign: 'center',
+    },
+    inputContainer: {
+      marginBottom: SPACING.md,
+    },
+    section: {
+      marginBottom: SPACING.xl,
+    },
+    sectionTitle: {
+      fontSize: TYPOGRAPHY.sizes.lg,
+      fontWeight: TYPOGRAPHY.weights.medium,
+      color: colors.text,
+      marginBottom: SPACING.md,
+    },
+    settingGroup: {
+      marginBottom: SPACING.lg,
+    },
+    settingLabel: {
+      fontSize: TYPOGRAPHY.sizes.md,
+      fontWeight: TYPOGRAPHY.weights.medium,
+      color: colors.text,
+      marginBottom: SPACING.xs,
+    },
+    settingDescription: {
+      fontSize: TYPOGRAPHY.sizes.sm,
+      color: colors.textSecondary,
+      marginBottom: SPACING.sm,
+    },
+    optionRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: SPACING.sm,
+    },
+    optionButton: {
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      minWidth: 60,
+      alignItems: 'center',
+    },
+    optionButtonActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    optionText: {
+      fontSize: TYPOGRAPHY.sizes.md,
+      color: colors.text,
+      fontWeight: TYPOGRAPHY.weights.medium,
+    },
+    optionTextActive: {
+      color: 'white',
+    },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    switchLabelContainer: {
+      flex: 1,
+      marginRight: SPACING.md,
+    },
+    infoCard: {
+      backgroundColor: colors.surface,
+      padding: SPACING.md,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    infoText: {
+      fontSize: TYPOGRAPHY.sizes.md,
+      color: colors.text,
+      marginBottom: SPACING.xs,
+      lineHeight: 20,
+    },
+    infoTextBold: {
+      fontWeight: TYPOGRAPHY.weights.medium,
+    },
+    infoTextSmall: {
+      fontSize: TYPOGRAPHY.sizes.sm,
+      color: colors.textSecondary,
+      fontStyle: 'italic',
+      marginTop: SPACING.xs,
+    },
+    errorContainer: {
+      marginTop: SPACING.md,
+      backgroundColor: colors.error,
+      paddingVertical: SPACING.sm,
+      paddingHorizontal: SPACING.md,
+      borderRadius: BORDERS.md,
+    },
+    serverErrorText: {
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
+      color: COLORS.light.background,
+      textAlign: 'center',
+      fontSize: TYPOGRAPHY.sizes.footnote,
+    },
+    buttonContainer: {
+      marginTop: SPACING.md,
+    },
+    linksContainer: {
+      marginTop: SPACING.lg,
+      alignItems: 'center',
+    },
+    linkButton: {
+      padding: SPACING.sm,
+    },
+    linkText: {
+      color: colors.primary,
+      fontSize: TYPOGRAPHY.sizes.body,
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
+    },
+    errorText: {
+      fontSize: TYPOGRAPHY.sizes.sm,
+      color: colors.error,
+      marginTop: SPACING.xs,
+    },
+  });
 
   return (
-    <Screen>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Create New Match</Text>
-            <Text style={styles.subtitle}>
-              Set up your die game and invite friends to join
-            </Text>
-          </View>
+        <View style={styles.formContainer}>
+          <Text style={styles.title}>Create New Match</Text>
+          <Text style={styles.subtitle}>
+            Set up your die game and invite friends to join
+          </Text>
 
-          {/* Basic Information Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Match Details</Text>
-
-            <MatchFormField
+          {/* Basic Information - Same pattern as AuthForm */}
+          <View style={styles.inputContainer}>
+            <Input
               label="Match Title"
               value={formData.title}
-              onValueChange={titleHandlers.onChange}
+              onChangeText={(text: string) => updateField('title', text)}
+              onBlur={() => handleFieldBlur('title')}
               error={errors.title}
               placeholder={PLACEHOLDERS.MATCH_TITLE}
-              required
+              autoCapitalize="words"
               maxLength={50}
-              onClearError={titleHandlers.onClearError}
             />
+          </View>
 
-            <MatchFormField
+          <View style={styles.inputContainer}>
+            <Input
               label="Description"
               value={formData.description}
-              onValueChange={descriptionHandlers.onChange}
+              onChangeText={(text: string) => updateField('description', text)}
+              onBlur={() => handleFieldBlur('description')}
               error={errors.description}
               placeholder={PLACEHOLDERS.MATCH_DESCRIPTION}
               multiline
               maxLength={500}
-              onClearError={descriptionHandlers.onClearError}
-            />
-
-            <MatchFormField
-              label="Location"
-              value={formData.location}
-              onValueChange={locationHandlers.onChange}
-              error={errors.location}
-              placeholder={PLACEHOLDERS.ENTER_LOCATION}
-              maxLength={100}
-              onClearError={locationHandlers.onClearError}
+              autoCapitalize="sentences"
             />
           </View>
 
-          {/* Game Settings Section */}
-          <GameSettingsSection
-            scoreLimit={formData.scoreLimit}
-            winByTwo={formData.winByTwo}
-            sinkPoints={formData.sinkPoints}
-            isPublic={formData.isPublic}
-            onScoreLimitChange={gameSettingsHandlers.onScoreLimitChange}
-            onWinByTwoChange={gameSettingsHandlers.onWinByTwoChange}
-            onSinkPointsChange={gameSettingsHandlers.onSinkPointsChange}
-            onIsPublicChange={gameSettingsHandlers.onIsPublicChange}
-            errors={errors}
-          />
+          <View style={styles.inputContainer}>
+            <Input
+              label="Location"
+              value={formData.location}
+              onChangeText={(text: string) => updateField('location', text)}
+              onBlur={() => handleFieldBlur('location')}
+              error={errors.location}
+              placeholder={PLACEHOLDERS.ENTER_LOCATION}
+              maxLength={100}
+              autoCapitalize="words"
+            />
+          </View>
+
+          {/* Game Settings - Inline and simple */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Game Settings</Text>
+
+            {/* Score Limit */}
+            <View style={styles.settingGroup}>
+              <Text style={styles.settingLabel}>Score Limit</Text>
+              <View style={styles.optionRow}>
+                {MATCH_SETTINGS.SCORE_LIMIT_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.optionButton,
+                      formData.scoreLimit === option &&
+                        styles.optionButtonActive,
+                    ]}
+                    onPress={() => updateField('scoreLimit', option)}
+                  >
+                    <Text
+                      style={[
+                        styles.optionText,
+                        formData.scoreLimit === option &&
+                          styles.optionTextActive,
+                      ]}
+                    >
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {errors.scoreLimit && (
+                <Text style={styles.errorText}>{errors.scoreLimit}</Text>
+              )}
+            </View>
+
+            {/* Win by Two */}
+            <View style={styles.settingGroup}>
+              <View style={styles.switchRow}>
+                <View style={styles.switchLabelContainer}>
+                  <Text style={styles.settingLabel}>Win by Two</Text>
+                  <Text style={styles.settingDescription}>
+                    Must win by at least 2 points
+                  </Text>
+                </View>
+                <Switch
+                  value={formData.winByTwo}
+                  onValueChange={(value) => updateField('winByTwo', value)}
+                  trackColor={{
+                    false: colors.border,
+                    true: colors.primary + '30',
+                  }}
+                  thumbColor={
+                    formData.winByTwo ? colors.primary : colors.textSecondary
+                  }
+                />
+              </View>
+            </View>
+
+            {/* Sink Points */}
+            <View style={styles.settingGroup}>
+              <Text style={styles.settingLabel}>Sink Points</Text>
+              <Text style={styles.settingDescription}>
+                Points awarded for sinking the die
+              </Text>
+              <View style={styles.optionRow}>
+                {MATCH_SETTINGS.SINK_POINTS_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.optionButton,
+                      formData.sinkPoints === option &&
+                        styles.optionButtonActive,
+                    ]}
+                    onPress={() => updateField('sinkPoints', option as 3 | 5)}
+                  >
+                    <Text
+                      style={[
+                        styles.optionText,
+                        formData.sinkPoints === option &&
+                          styles.optionTextActive,
+                      ]}
+                    >
+                      {option} pts
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {errors.sinkPoints && (
+                <Text style={styles.errorText}>{errors.sinkPoints}</Text>
+              )}
+            </View>
+
+            {/* Visibility */}
+            <View style={styles.settingGroup}>
+              <View style={styles.switchRow}>
+                <View style={styles.switchLabelContainer}>
+                  <Text style={styles.settingLabel}>Public Match</Text>
+                  <Text style={styles.settingDescription}>
+                    Allow anyone to discover and join this match
+                  </Text>
+                </View>
+                <Switch
+                  value={formData.isPublic}
+                  onValueChange={(value) => updateField('isPublic', value)}
+                  trackColor={{
+                    false: colors.border,
+                    true: colors.primary + '30',
+                  }}
+                  thumbColor={
+                    formData.isPublic ? colors.primary : colors.textSecondary
+                  }
+                />
+              </View>
+            </View>
+          </View>
 
           {/* Team Info Section */}
           <View style={styles.section}>
@@ -153,120 +455,35 @@ const MatchForm: React.FC<MatchFormProps> = ({
                 Players will be automatically assigned
               </Text>
               <Text style={styles.infoTextSmall}>
-                {/* TODO: Manual team selection coming soon */}
                 Manual team selection coming in a future update
               </Text>
             </View>
           </View>
 
-          {/* General Error Display */}
-          {errors.general && (
+          {/* Server Error - Same pattern as AuthForm */}
+          {serverError && (
             <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{errors.general}</Text>
+              <Text style={styles.serverErrorText}>{serverError}</Text>
             </View>
           )}
 
-          {/* Create Button */}
+          {/* Buttons - Same pattern as AuthForm */}
           <View style={styles.buttonContainer}>
-            <Button
-              variant="primary"
-              size="large"
-              onPress={onCreateMatch}
-              loading={isCreating}
-              disabled={!isFormValid || isCreating}
-            >
-              {isCreating ? 'Creating Match...' : BUTTON_LABELS.CREATE_MATCH}
+            <Button onPress={handleSubmit} loading={loading}>
+              <Text>{loading ? 'Creating Match...' : 'Create Match'}</Text>
             </Button>
           </View>
 
-          {/* Bottom spacing for keyboard */}
-          <View style={styles.bottomSpacing} />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </Screen>
+          {/* Cancel Button */}
+          {onCancel && (
+            <View style={styles.linksContainer}>
+              <TouchableOpacity style={styles.linkButton} onPress={onCancel}>
+                <Text style={styles.linkText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.xl,
-  },
-  header: {
-    marginBottom: SPACING.xl,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: TYPOGRAPHY.sizes.xxxl,
-    fontWeight: TYPOGRAPHY.weights.bold,
-    color: COLORS.light.text,
-    marginBottom: SPACING.xs,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    color: COLORS.light.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: SPACING.lg,
-  },
-  section: {
-    marginBottom: SPACING.xl,
-  },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.sizes.lg,
-    fontWeight: TYPOGRAPHY.weights.medium,
-    color: COLORS.light.text,
-    marginBottom: SPACING.md,
-  },
-  infoCard: {
-    backgroundColor: COLORS.light.surface,
-    padding: SPACING.md,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.light.border,
-  },
-  infoText: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    color: COLORS.light.text,
-    marginBottom: SPACING.xs,
-    lineHeight: 20,
-  },
-  infoTextBold: {
-    fontWeight: TYPOGRAPHY.weights.medium,
-  },
-  infoTextSmall: {
-    fontSize: TYPOGRAPHY.sizes.sm,
-    color: COLORS.light.textSecondary,
-    fontStyle: 'italic',
-    marginTop: SPACING.xs,
-  },
-  errorContainer: {
-    backgroundColor: COLORS.light.error + '10',
-    padding: SPACING.md,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.light.error + '30',
-    marginBottom: SPACING.md,
-  },
-  errorText: {
-    color: COLORS.light.error,
-    fontSize: TYPOGRAPHY.sizes.md,
-    textAlign: 'center',
-  },
-  buttonContainer: {
-    marginTop: SPACING.lg,
-    marginHorizontal: SPACING.md,
-  },
-  bottomSpacing: {
-    height: SPACING.xxl,
-  },
-});
-
-export default MatchForm;

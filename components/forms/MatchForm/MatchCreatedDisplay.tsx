@@ -23,6 +23,9 @@ interface MatchCreatedDisplayProps {
  *
  * Shows the successfully created match with QR code,
  * sharing options, and navigation actions.
+ *
+ * This component is separate from the form logic and handles
+ * the success state after a match is created.
  */
 const MatchCreatedDisplay: React.FC<MatchCreatedDisplayProps> = ({
   match,
@@ -34,11 +37,33 @@ const MatchCreatedDisplay: React.FC<MatchCreatedDisplayProps> = ({
   onGoToMatch,
 }) => {
   const handleCopyRoomCode = async () => {
-    const success = await onCopyRoomCode();
-    if (success) {
-      Alert.alert('Copied!', 'Room code copied to clipboard');
-    } else {
+    try {
+      const success = await onCopyRoomCode();
+      if (success) {
+        Alert.alert('Copied!', 'Room code copied to clipboard');
+      } else {
+        Alert.alert('Error', 'Failed to copy room code');
+      }
+    } catch (error) {
       Alert.alert('Error', 'Failed to copy room code');
+    }
+  };
+
+  const handleShareMatch = async () => {
+    try {
+      await onShareMatch();
+    } catch (error) {
+      Alert.alert(
+        'Share Failed',
+        'Unable to share the match. You can copy the room code instead.',
+        [
+          { text: 'OK' },
+          {
+            text: 'Copy Room Code',
+            onPress: handleCopyRoomCode,
+          },
+        ]
+      );
     }
   };
 
@@ -58,6 +83,9 @@ const MatchCreatedDisplay: React.FC<MatchCreatedDisplayProps> = ({
         {match.description && (
           <Text style={styles.matchDescription}>{match.description}</Text>
         )}
+        {match.location && (
+          <Text style={styles.matchLocation}>📍 {match.location}</Text>
+        )}
 
         <View style={styles.matchDetails}>
           <View style={styles.detailRow}>
@@ -67,9 +95,9 @@ const MatchCreatedDisplay: React.FC<MatchCreatedDisplayProps> = ({
           <View style={styles.detailRow}>
             <Settings size={16} color={COLORS.light.textSecondary} />
             <Text style={styles.detailText}>
-              Score to {match.settings.scoreLimit} •
-              {match.settings.winByTwo ? ' Win by 2 • ' : ' '}
-              Sink worth {match.settings.sinkPoints} pts
+              Score to {match.settings.scoreLimit}
+              {match.settings.winByTwo ? ' • Win by 2' : ''}
+              {' • Sink worth ' + match.settings.sinkPoints + ' pts'}
             </Text>
           </View>
         </View>
@@ -96,13 +124,19 @@ const MatchCreatedDisplay: React.FC<MatchCreatedDisplayProps> = ({
       <Card style={styles.qrCodeCard}>
         <Text style={styles.qrCodeLabel}>QR Code</Text>
 
-        {/* TODO: Replace with actual QR code component */}
+        {/* QR Code Placeholder - Replace with actual QR code component when available */}
         <View style={styles.qrCodePlaceholder}>
           <QrCode size={120} color={COLORS.light.text} />
           <Text style={styles.qrCodePlaceholderText}>
             QR Code will display here
           </Text>
-          <Text style={styles.qrCodeData}>{qrCodeData}</Text>
+          <Text
+            style={styles.qrCodeData}
+            numberOfLines={1}
+            ellipsizeMode="middle"
+          >
+            {qrCodeData}
+          </Text>
         </View>
 
         <Text style={styles.qrCodeHint}>
@@ -115,7 +149,7 @@ const MatchCreatedDisplay: React.FC<MatchCreatedDisplayProps> = ({
         <Button
           variant="outline"
           size="large"
-          onPress={onShareMatch}
+          onPress={handleShareMatch}
           icon={<Share2 size={20} color={COLORS.light.primary} />}
           style={styles.shareButton}
         >
@@ -178,6 +212,11 @@ const styles = StyleSheet.create({
   matchDescription: {
     fontSize: TYPOGRAPHY.sizes.md,
     color: COLORS.light.textSecondary,
+    marginBottom: SPACING.sm,
+  },
+  matchLocation: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    color: COLORS.light.textSecondary,
     marginBottom: SPACING.md,
   },
   matchDetails: {
@@ -191,6 +230,7 @@ const styles = StyleSheet.create({
   detailText: {
     fontSize: TYPOGRAPHY.sizes.sm,
     color: COLORS.light.textSecondary,
+    flex: 1,
   },
   roomCodeCard: {
     marginBottom: SPACING.lg,
@@ -252,6 +292,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.light.border,
     marginBottom: SPACING.sm,
     minHeight: 180,
+    width: '100%',
   },
   qrCodePlaceholderText: {
     fontSize: TYPOGRAPHY.sizes.sm,
@@ -263,6 +304,7 @@ const styles = StyleSheet.create({
     color: COLORS.light.textSecondary,
     marginTop: SPACING.xs,
     textAlign: 'center',
+    maxWidth: '100%',
   },
   qrCodeHint: {
     fontSize: TYPOGRAPHY.sizes.sm,
