@@ -1,12 +1,11 @@
 // types/models.ts
 import {
   MatchStatus,
-  PlayType,
-  UserRole,
   NotificationType,
+  PlayType,
   PrivacyLevel,
   Theme,
-  SortDirection,
+  UserRole,
 } from './enums';
 
 // ============================================

@@ -1,4 +1,7 @@
 DS5/
+├─ .dependencygraph/
+│  ├─ data.json
+│  └─ setting.json
 ├─ .expo/
 │  ├─ types/
 │  │  └─ router.d.ts
@@ -16,6 +19,7 @@ DS5/
 │  ├─ (tabs)/
 │  │  ├─ _layout.tsx
 │  │  ├─ home.tsx
+│  │  ├─ profile.tsx
 │  │  └─ social.tsx
 │  ├─ _layout.tsx
 │  └─ index.tsx
@@ -144,14 +148,32 @@ DS5/
 │  │  │  ├─ ActiveMatchCard.tsx
 │  │  │  ├─ ActiveMatchCard.types.ts
 │  │  │  └─ index.ts
-│  │  └─ History/
-│  │     ├─ History.types.ts
-│  │     ├─ HistoryCard.tsx
-│  │     ├─ HistoryEmpty.tsx
-│  │     ├─ HistoryFilters.tsx
-│  │     ├─ HistoryList.tsx
-│  │     └─ index.ts
+│  │  ├─ History/
+│  │  │  ├─ History.types.ts
+│  │  │  ├─ HistoryCard.tsx
+│  │  │  ├─ HistoryEmpty.tsx
+│  │  │  ├─ HistoryFilters.tsx
+│  │  │  ├─ HistoryList.tsx
+│  │  │  └─ index.ts
+│  │  └─ Stats/
+│  │     ├─ ComparisonRow.tsx
+│  │     ├─ index.tsx
+│  │     ├─ PercentageRing.tsx
+│  │     ├─ ProgressBar.tsx
+│  │     ├─ StatCard.tsx
+│  │     ├─ StatChart.tsx
+│  │     ├─ StatRow.tsx
+│  │     ├─ Stats.styles.ts
+│  │     ├─ Stats.types.ts
+│  │     ├─ StatsGrid.tsx
+│  │     ├─ StatsList.tsx
+│  │     └─ TrendIndicator.tsx
 │  └─ social/
+│     ├─ AchievementGrid/
+│     │  ├─ AchievementGrid.tsx
+│     │  ├─ AchievementGrid.types.ts
+│     │  ├─ AchievementItem.tsx
+│     │  └─ index.tsx
 │     ├─ community/
 │     │  ├─ Community.types.ts
 │     │  ├─ CommunityCard.styles.tsx
@@ -256,6 +278,7 @@ DS5/
 ├─ .prettierrc
 ├─ app.json
 ├─ expo-env.d.ts
+├─ FileTree.txt
 ├─ metro.config.js
 ├─ package-lock.json
 ├─ package.json

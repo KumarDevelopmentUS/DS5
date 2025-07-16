@@ -13,5 +13,5 @@
     ".scss",
     ".less"
   ],
-  "entryFilePath": "./src"
+  "entryFilePath": "/app/(tabs)/profile.tsx"
 }
