@@ -1,0 +1,262 @@
+DS5/
+├─ .expo/
+│  ├─ types/
+│  │  └─ router.d.ts
+│  ├─ devices.json
+│  └─ README.md
+├─ .vscode/
+│  └─ .react/
+├─ app/
+│  ├─ (auth)/
+│  │  ├─ _layout.tsx
+│  │  ├─ forgotpassword.tsx
+│  │  ├─ index.tsx
+│  │  ├─ login.tsx
+│  │  └─ signup.tsx
+│  ├─ (tabs)/
+│  │  ├─ _layout.tsx
+│  │  ├─ home.tsx
+│  │  └─ social.tsx
+│  ├─ _layout.tsx
+│  └─ index.tsx
+├─ assets/
+│  ├─ animations/
+│  │  ├─ empty-state.json
+│  │  ├─ error.json
+│  │  ├─ loading.json
+│  │  └─ success.json
+│  ├─ fonts/
+│  │  ├─ Inter-Black.ttf
+│  │  ├─ Inter-Bold.ttf
+│  │  ├─ Inter-Medium.ttf
+│  │  └─ Inter-Regular.ttf
+│  ├─ images/
+│  │  ├─ backrounds/
+│  │  │  ├─ auth-bg.png
+│  │  │  └─ profile-bg.png
+│  │  ├─ icons/
+│  │  │  ├─ achievements/
+│  │  │  │  ├─ champion.png
+│  │  │  │  ├─ mvp.png
+│  │  │  │  └─ streak.png
+│  │  │  └─ sports/
+│  │  │     └─ dice.png
+│  │  ├─ logo/
+│  │  ├─ onboarding/
+│  │  │  ├─ welcome-1.png
+│  │  │  ├─ welcome-2.png
+│  │  │  └─ welcome-3.png
+│  │  └─ placeholders/
+│  │     ├─ avatar-default.png
+│  │     ├─ community-placeholder.png
+│  │     └─ match-placeholder.png
+│  └─ sounds/
+│     ├─ error.mp3
+│     ├─ notification.mp3
+│     └─ success.mp3
+├─ components/
+│  ├─ analytics/
+│  │  └─ QuickStats/
+│  │     ├─ index.ts
+│  │     ├─ QuickStats.styles.ts
+│  │     ├─ QuickStats.tsx
+│  │     ├─ QuickStats.types.ts
+│  │     ├─ QuickStats.utils.ts
+│  │     └─ StatItem.tsx
+│  ├─ auth/
+│  │  └─ AuthNavigationWrapper.tsx
+│  ├─ core/
+│  │  ├─ Avatar/
+│  │  │  ├─ Avatar.styles.ts
+│  │  │  ├─ Avatar.tsx
+│  │  │  ├─ Avatar.types.ts
+│  │  │  └─ index.ts
+│  │  ├─ Badge/
+│  │  │  ├─ Badge.styles.ts
+│  │  │  ├─ Badge.tsx
+│  │  │  ├─ Badge.types.ts
+│  │  │  └─ index.tsx
+│  │  ├─ Button/
+│  │  │  ├─ Button.styles.ts
+│  │  │  ├─ Button.tsx
+│  │  │  ├─ Button.types.ts
+│  │  │  └─ index.ts
+│  │  ├─ Card/
+│  │  │  ├─ Card.styles.ts
+│  │  │  ├─ Card.tsx
+│  │  │  ├─ Card.types.ts
+│  │  │  └─ index.tsx
+│  │  ├─ Input/
+│  │  │  ├─ index.ts
+│  │  │  ├─ Input.styles.ts
+│  │  │  ├─ Input.tsx
+│  │  │  └─ Input.types.ts
+│  │  ├─ Modal/
+│  │  │  ├─ index.ts
+│  │  │  ├─ Modal.styles.ts
+│  │  │  ├─ Modal.tsx
+│  │  │  └─ Modal.types.ts
+│  │  └─ ProgressIndicator/
+│  │     ├─ index.tsx
+│  │     ├─ ProgressIndicator.styles.ts
+│  │     ├─ ProgressIndicator.tsx
+│  │     └─ ProgressIndicator.types.ts
+│  ├─ forms/
+│  │  ├─ AuthForm/
+│  │  │  ├─ AuthForm.styles.ts
+│  │  │  ├─ AuthForm.tsx
+│  │  │  ├─ AuthForm.types.ts
+│  │  │  └─ index.ts
+│  │  ├─ CreationModal/
+│  │  │  ├─ CreationModal.styles.ts
+│  │  │  ├─ CreationModal.tsx
+│  │  │  ├─ CreationModal.types.ts
+│  │  │  └─ index.tsx
+│  │  └─ SchoolPicker/
+│  │     ├─ index.tsx
+│  │     ├─ SchoolPicker.styles.ts
+│  │     ├─ SchoolPicker.tsx
+│  │     └─ SchoolPicker.types.ts
+│  ├─ Layout/
+│  │  ├─ LoadingStates/
+│  │  │  ├─ EmptyState.tsx
+│  │  │  ├─ index.ts
+│  │  │  ├─ LoadingOverlay.tsx
+│  │  │  ├─ LoadingStates.styles.ts
+│  │  │  ├─ LoadingStates.types.ts
+│  │  │  ├─ SkeletonLoader.tsx
+│  │  │  └─ Spinner.tsx
+│  │  ├─ Screen/
+│  │  │  ├─ index.tsx
+│  │  │  ├─ Screen.styles.ts
+│  │  │  ├─ Screen.tsx
+│  │  │  ├─ Screen.types.ts
+│  │  │  └─ ScreenHeader.tsx
+│  │  └─ TabBar/
+│  │     ├─ index.ts
+│  │     ├─ TabBar.tsx
+│  │     ├─ TabBar.types.ts
+│  │     ├─ TabBarIcon.tsx
+│  │     └─ TabBarIcon.types.ts
+│  ├─ match/
+│  │  ├─ ActiveMatchCard/
+│  │  │  ├─ ActiveMatchCard.styles.ts
+│  │  │  ├─ ActiveMatchCard.tsx
+│  │  │  ├─ ActiveMatchCard.types.ts
+│  │  │  └─ index.ts
+│  │  └─ History/
+│  │     ├─ History.types.ts
+│  │     ├─ HistoryCard.tsx
+│  │     ├─ HistoryEmpty.tsx
+│  │     ├─ HistoryFilters.tsx
+│  │     ├─ HistoryList.tsx
+│  │     └─ index.ts
+│  └─ social/
+│     ├─ community/
+│     │  ├─ Community.types.ts
+│     │  ├─ CommunityCard.styles.tsx
+│     │  ├─ CommunityCard.tsx
+│     │  ├─ CommunityGrid.styles.ts
+│     │  ├─ CommunityGrid.tsx
+│     │  ├─ CommunityHeader.styles.ts
+│     │  ├─ CommunityHeader.tsx
+│     │  ├─ index.tsx
+│     │  ├─ MemberList.styles.tsx
+│     │  └─ MemberList.tsx
+│     ├─ Feed/
+│     │  ├─ ActivityFeedItem.tsx
+│     │  ├─ Feed.tsx
+│     │  ├─ Feed.types.ts
+│     │  ├─ FeedItem.tsx
+│     │  ├─ index.ts
+│     │  ├─ MatchFeedItem.tsx
+│     │  └─ PostFeedItem.tsx
+│     └─ Friends/
+│        ├─ BlockedUserCard.tsx
+│        ├─ BlockedUsersList.tsx
+│        ├─ FriendCard.tsx
+│        ├─ FriendRequestCard.tsx
+│        ├─ FriendsList.tsx
+│        ├─ UserSearchCard.tsx
+│        └─ UserSearchResults.tsx
+├─ constants/
+│  ├─ data/
+│  │  └─ schools.ts
+│  ├─ config.ts
+│  ├─ game.ts
+│  ├─ messages.ts
+│  ├─ routes.ts
+│  └─ theme.ts
+├─ contexts/
+│  ├─ AuthContext.tsx
+│  ├─ MatchContext.tsx
+│  ├─ NotificationContext.tsx
+│  ├─ OfflineContext.tsx
+│  └─ ThemeContext.tsx
+├─ hooks/
+│  ├─ analytics/
+│  │  └─ usePlayerStats.ts
+│  ├─ auth/
+│  │  ├─ useAuth.ts
+│  │  └─ usePermissions.ts
+│  ├─ match/
+│  │  ├─ useActiveMatch.ts
+│  │  └─ useMatchHistory.ts
+│  ├─ social/
+│  │  ├─ useCombinedFeed.ts
+│  │  ├─ useCommunity.ts
+│  │  └─ useFriends.ts
+│  └─ ui/
+│     ├─ useDebounce.ts
+│     ├─ useForm.ts
+│     ├─ useKeyboard.ts
+│     ├─ useMultiStepForm.ts
+│     ├─ useRefresh.ts
+│     └─ useTheme.ts
+├─ services/
+│  ├─ analytics/
+│  │  ├─ exportService.ts
+│  │  └─ statsService.ts
+│  ├─ auth/
+│  │  └─ authService.ts
+│  ├─ database/
+│  │  └─ databaseService.ts
+│  ├─ match/
+│  │  ├─ matchService.ts
+│  │  └─ realtimeService.ts
+│  ├─ notification/
+│  │  └─ notificationService.ts
+│  ├─ social/
+│  │  ├─ commentService.ts
+│  │  ├─ communityService.ts
+│  │  ├─ friendService.ts
+│  │  └─ postService.ts
+│  └─ storage/
+│     └─ mediaService.ts
+├─ types/
+│  ├─ api.ts
+│  ├─ database.types.ts
+│  ├─ enums.ts
+│  ├─ models.ts
+│  └─ ui.ts
+├─ utils/
+│  ├─ calculations.ts
+│  ├─ errors.ts
+│  ├─ format.ts
+│  ├─ navigation.ts
+│  ├─ permissions.ts
+│  ├─ storage.ts
+│  └─ validation.ts
+├─ .env
+├─ .env.local
+├─ .eslintignore
+├─ .eslintrc.js
+├─ .gitignore
+├─ .prettierignore
+├─ .prettierrc
+├─ app.json
+├─ expo-env.d.ts
+├─ metro.config.js
+├─ package-lock.json
+├─ package.json
+└─ tsconfig.json

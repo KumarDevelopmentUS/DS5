@@ -1,0 +1,17 @@
+{
+  "alias": {
+    "@/*": "*",
+    "@components/*": "components/*",
+    "@assets/*": "assets/*"
+  },
+  "resolveExtensions": [
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".vue",
+    ".scss",
+    ".less"
+  ],
+  "entryFilePath": "./src"
+}

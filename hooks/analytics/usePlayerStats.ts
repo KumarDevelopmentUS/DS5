@@ -1,4 +1,3 @@
-// hooks/analytics/usePlayerStats.ts
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../services/database/databaseService';
 import { Tables } from '../../types/database.types';
