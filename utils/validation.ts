@@ -46,10 +46,10 @@ export const validateEmail = (email: string): ValidationResult => {
     };
   }
 
-  if (trimmedEmail.length > 254) {
+  if (trimmedEmail.length > 64) {
     return {
       isValid: false,
-      error: 'Email is too long (maximum 254 characters)',
+      error: 'Email is too long (maximum 64 characters)',
     };
   }
 
@@ -310,10 +310,10 @@ export const validateMatchTitle = (title: string): ValidationResult => {
     };
   }
 
-  if (sanitizedTitle.length > 100) {
+  if (sanitizedTitle.length > 50) {
     return {
       isValid: false,
-      error: 'Match title must be no more than 100 characters long',
+      error: 'Match title must be no more than 50 characters long',
     };
   }
 

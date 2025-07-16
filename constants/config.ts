@@ -38,9 +38,9 @@ export const STORAGE_CONFIG = {
   // File size limits (in bytes)
   MAX_FILE_SIZE: {
     AVATAR: 5 * 1024 * 1024, // 5MB
-    IMAGE: 10 * 1024 * 1024, // 10MB
-    VIDEO: 100 * 1024 * 1024, // 100MB
-    DOCUMENT: 25 * 1024 * 1024, // 25MB
+    IMAGE: 2 * 1024 * 1024, // 2MB
+    VIDEO: 5 * 1024 * 1024, // 5MB
+    DOCUMENT: 2 * 1024 * 1024, // 2MB
   },
 
   // Allowed file types (optimized for mobile uploads)
@@ -181,7 +181,7 @@ export const SOCIAL_CONFIG = {
 
   // Post settings
   MAX_POST_LENGTH: 1000,
-  MAX_COMMENT_LENGTH: 500,
+  MAX_COMMENT_LENGTH: 100,
   MAX_POST_ATTACHMENTS: 10,
 
   // Friend system
@@ -191,7 +191,7 @@ export const SOCIAL_CONFIG = {
   // User profile
   USERNAME_MIN_LENGTH: 3,
   USERNAME_MAX_LENGTH: 20,
-  BIO_MAX_LENGTH: 160,
+  BIO_MAX_LENGTH: 12,
 };
 
 // Analytics Configuration
