@@ -15,7 +15,6 @@ import GameSettingsSection from './GameSettingsSection';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
 import { BUTTON_LABELS, PLACEHOLDERS } from '../../../constants/messages';
 import type { MatchFormProps } from './MatchForm.types';
-import { Input } from '../../core/Input/Input';
 
 /**
  * Main Match Creation Form Component
@@ -26,7 +25,6 @@ import { Input } from '../../core/Input/Input';
  *
  * OPTIMIZED with useMemo and useCallback to prevent unnecessary re-renders
  */
-
 const MatchForm: React.FC<MatchFormProps> = ({
   formData,
   errors,
@@ -70,12 +68,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
     }),
     [onUpdateField]
   );
-  const handleTitleChange = useCallback(
-    (text: string) => {
-      onUpdateField('title', text);
-    },
-    [onUpdateField]
-  );
 
   return (
     <Screen>
@@ -102,13 +94,15 @@ const MatchForm: React.FC<MatchFormProps> = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Match Details</Text>
 
-            <Input
+            <MatchFormField
               label="Match Title"
               value={formData.title}
-              onChangeText={handleTitleChange}
+              onValueChange={titleHandlers.onChange}
               error={errors.title}
               placeholder={PLACEHOLDERS.MATCH_TITLE}
+              required
               maxLength={50}
+              onClearError={titleHandlers.onClearError}
             />
 
             <MatchFormField
