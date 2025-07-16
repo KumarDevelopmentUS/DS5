@@ -22,10 +22,10 @@ export const ROUTES = {
   // Match routes
   MATCH: {
     CREATE: '/match/create',
-    LIVE: '/match/[id]',
-    STATS: '/match/[id]/stats',
-    RECAP: '/match/[id]/recap',
-    HISTORY: '/match/history/[id]',
+    LIVE: (id: string) => `/match/${id}`,
+    STATS: (id: string) => `/match/${id}/stats`,
+    RECAP: (id: string) => `/match/${id}/recap`,
+    HISTORY: (id: string) => `/match/history/${id}`,
   },
 
   // Social routes

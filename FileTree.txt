@@ -21,6 +21,8 @@ DS5/
 │  │  ├─ home.tsx
 │  │  ├─ profile.tsx
 │  │  └─ social.tsx
+│  ├─ match/
+│  │  └─ create.tsx
 │  ├─ _layout.tsx
 │  └─ index.tsx
 ├─ assets/
@@ -116,6 +118,13 @@ DS5/
 │  │  │  ├─ CreationModal.tsx
 │  │  │  ├─ CreationModal.types.ts
 │  │  │  └─ index.tsx
+│  │  ├─ MatchForm/
+│  │  │  ├─ GameSettingsSection.tsx
+│  │  │  ├─ index.ts
+│  │  │  ├─ MatchCreatedDisplay.tsx
+│  │  │  ├─ MatchForm.tsx
+│  │  │  ├─ MatchForm.types.ts
+│  │  │  └─ MatchFormField.tsx
 │  │  └─ SchoolPicker/
 │  │     ├─ index.tsx
 │  │     ├─ SchoolPicker.styles.ts
@@ -223,6 +232,7 @@ DS5/
 │  │  └─ usePermissions.ts
 │  ├─ match/
 │  │  ├─ useActiveMatch.ts
+│  │  ├─ useMatchCreation.ts
 │  │  └─ useMatchHistory.ts
 │  ├─ social/
 │  │  ├─ useCombinedFeed.ts
