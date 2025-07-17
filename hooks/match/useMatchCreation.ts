@@ -115,7 +115,7 @@ export interface UseMatchCreationReturn
 // Default form data with game defaults
 const getDefaultFormData = (): MatchCreationFormData => ({
   // Basic Info
-  title: '',
+  title: 'Match', // Set default title to 'Match'
   description: '',
   location: '',
 
@@ -362,8 +362,9 @@ export const useMatchCreation = (): UseMatchCreationReturn => {
 
     try {
       // Prepare match data for the service
+      const title = formData.title && formData.title.trim().length > 0 ? formData.title.trim() : 'Match';
       const createMatchData: CreateMatchData = {
-        title: sanitizeInput(formData.title.trim()),
+        title: sanitizeInput(title),
         description: formData.description.trim() || undefined,
         gameType: 'die_stats', // Always die game as specified
         location: formData.location.trim() || undefined,

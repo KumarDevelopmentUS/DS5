@@ -155,9 +155,9 @@ export const MATCH_CONFIG = {
   DEFAULT_SCORE_LIMIT: 21,
   DEFAULT_TIME_LIMIT: null, // No time limit by default
 
-  // ShortID configuration (Letter-6digits format)
-  SHORT_ID_FORMAT: 'L-NNNNNN', // L = Letter, N = Number
-  SHORT_ID_PATTERN: /^[A-Z]-\d{6}$/,
+  // ShortID configuration (1 letter + 5 digits format)
+  SHORT_ID_FORMAT: 'LNNNNN', // L = Letter, N = Number
+  SHORT_ID_PATTERN: /^[A-Z]\d{5}$/,
   SHORT_ID_LETTERS: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
 
   // Match expiry

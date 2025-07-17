@@ -1366,14 +1366,14 @@ export class MatchService {
     const maxAttempts = 10;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Generate code in format L-NNNNNN
+      // Generate code in format LNNNNN (1 letter + 5 digits, no dash)
       const letter = MATCH_CONFIG.SHORT_ID_LETTERS.charAt(
         Math.floor(Math.random() * MATCH_CONFIG.SHORT_ID_LETTERS.length)
       );
-      const numbers = Math.floor(Math.random() * 1000000)
+      const numbers = Math.floor(Math.random() * 100000)
         .toString()
-        .padStart(6, '0');
-      const code = `${letter}-${numbers}`;
+        .padStart(5, '0');
+      const code = `${letter}${numbers}`;
 
       // Check if code exists
       const { data } = await supabase
