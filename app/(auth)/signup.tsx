@@ -2,7 +2,7 @@ import React from 'react';
 import { useRouter } from 'expo-router';
 import { AuthForm, AuthFormData } from '../../components/forms/AuthForm';
 import { useAuth } from '../../hooks/auth/useAuth';
-import { Screen } from '../../components/Layout/Screen';
+import { SimpleScreen } from '../../components/Layout/Screen/SimpleScreen';
 import { SignUpData } from '../../services/auth/authService';
 
 /**
@@ -47,9 +47,9 @@ const SignupScreen = () => {
   };
 
   return (
-    <Screen
-      preset="scroll"
-      style={{ paddingHorizontal: 24, justifyContent: 'center' }}
+    <SimpleScreen
+      showHeader={false}
+      contentStyle={{ paddingHorizontal: 24, justifyContent: 'center' }}
     >
       <AuthForm
         formType="signup"
@@ -58,7 +58,7 @@ const SignupScreen = () => {
         serverError={error}
         onNavigate={navigateToLogin}
       />
-    </Screen>
+    </SimpleScreen>
   );
 };
 

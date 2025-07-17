@@ -1,30 +1,45 @@
-// app/match/create.tsx
+// app/match/create.tsx - FULL VERSION WITH SAFEGUARDS
 import React, { useEffect, useCallback } from 'react';
-import { Alert, BackHandler } from 'react-native';
+import {
+  Alert,
+  BackHandler,
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+} from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import {
   MatchForm,
   MatchCreatedDisplay,
 } from '../../components/forms/MatchForm';
 import { useMatchCreation } from '../../hooks/match/useMatchCreation';
-import { ScreenHeader } from '../../components/Layout/Screen/ScreenHeader';
+import { SimpleScreen } from '../../components/Layout/Screen/SimpleScreen';
+import { useTheme } from '../../hooks/ui/useTheme';
 import { SCREEN_TITLES, CONFIRMATION_MESSAGES } from '../../constants/messages';
 
-/**
- * Match Creation Screen
- *
- * A dedicated screen for creating new matches. Uses a single-screen approach
- * for optimal user experience. After successful creation, displays the match
- * details with QR code and sharing options.
- *
- * Flow:
- * 1. User fills out match creation form
- * 2. Form validates and creates match
- * 3. Success screen shows with QR code and sharing
- * 4. User can go to match or create another
- */
 export default function CreateMatchScreen() {
   const matchCreation = useMatchCreation();
+  const { colors } = useTheme();
+
+  console.log('CreateMatchScreen rendering, matchCreation state:', {
+    isCreating: matchCreation?.isCreating,
+    hasCreatedMatch: !!matchCreation?.createdMatch,
+    hasErrors: !!matchCreation?.errors,
+    errors: matchCreation?.errors,
+  });
+
+  // Safeguard against undefined matchCreation
+  if (!matchCreation) {
+    return (
+      <SimpleScreen showHeader={false}>
+        <View style={{ padding: 20 }}>
+          <Text>Loading match creation...</Text>
+        </View>
+      </SimpleScreen>
+    );
+  }
 
   /**
    * Handle Android back button
@@ -32,7 +47,7 @@ export default function CreateMatchScreen() {
   useEffect(() => {
     const backAction = () => {
       handleBackPress();
-      return true; // Prevent default back action
+      return true;
     };
 
     const backHandler = BackHandler.addEventListener(
@@ -46,17 +61,15 @@ export default function CreateMatchScreen() {
    * Handle back navigation with unsaved changes warning
    */
   const handleBackPress = useCallback(() => {
-    // If match was created, navigate back without warning
     if (matchCreation.createdMatch) {
       router.back();
       return;
     }
 
-    // Check if form has unsaved changes
     const hasUnsavedChanges =
-      matchCreation.formData.title.trim().length > 0 ||
-      matchCreation.formData.description.trim().length > 0 ||
-      matchCreation.formData.location.trim().length > 0;
+      (matchCreation.formData?.title?.trim()?.length || 0) > 0 ||
+      (matchCreation.formData?.description?.trim()?.length || 0) > 0 ||
+      (matchCreation.formData?.location?.trim()?.length || 0) > 0;
 
     if (hasUnsavedChanges) {
       Alert.alert('Discard Changes?', CONFIRMATION_MESSAGES.DISCARD_CHANGES, [
@@ -68,7 +81,7 @@ export default function CreateMatchScreen() {
           text: 'Discard',
           style: 'destructive',
           onPress: () => {
-            matchCreation.resetForm();
+            matchCreation.resetForm?.();
             router.back();
           },
         },
@@ -78,61 +91,45 @@ export default function CreateMatchScreen() {
     }
   }, [
     matchCreation.createdMatch,
-    matchCreation.formData.title,
-    matchCreation.formData.description,
-    matchCreation.formData.location,
+    matchCreation.formData,
     matchCreation.resetForm,
   ]);
 
   /**
-   * Handle successful match creation
+   * Handle successful match creation - FIXED
    */
-  const handleCreateMatch = useCallback(async () => {
-    const result = await matchCreation.createMatch();
+  const handleCreateMatch = useCallback(
+    async (formData: any) => {
+      try {
+        console.log('Creating match with form data:', formData);
 
-    if (result.success && result.data) {
-      // Match created successfully - the UI will automatically switch to success view
-      // You could add analytics tracking here
-      console.log('Match created successfully:', result.data.roomCode);
-    }
-    // Errors are handled by the hook and displayed in the form
-  }, [matchCreation.createMatch]);
+        // Update the hook's form data FIRST, then create
+        if (matchCreation.updateFormData) {
+          matchCreation.updateFormData(formData);
+        }
 
-  /**
-   * Handle form field updates
-   */
-  const handleUpdateField = useCallback(
-    (field: any, value: any) => {
-      matchCreation.updateField(field, value);
+        // Wait a tick for state to update before calling createMatch
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const result = await matchCreation.createMatch();
+
+        if (result?.success && result?.data) {
+          console.log('Match created successfully:', result.data.roomCode);
+        } else {
+          console.error('Match creation failed:', result?.error);
+        }
+      } catch (error) {
+        console.error('Error in handleCreateMatch:', error);
+      }
     },
-    [matchCreation.updateField]
-  );
-
-  /**
-   * Handle form data updates
-   */
-  const handleUpdateFormData = useCallback(
-    (updates: any) => {
-      matchCreation.updateFormData(updates);
-    },
-    [matchCreation.updateFormData]
-  );
-
-  /**
-   * Handle clearing field errors
-   */
-  const handleClearError = useCallback(
-    (field: any) => {
-      matchCreation.clearFieldError(field);
-    },
-    [matchCreation.clearFieldError]
+    [matchCreation]
   );
 
   /**
    * Navigate to the created match
    */
   const handleGoToMatch = useCallback(() => {
-    if (matchCreation.createdMatch) {
+    if (matchCreation.createdMatch?.id) {
       router.push(`/match/${matchCreation.createdMatch.id}` as any);
     }
   }, [matchCreation.createdMatch]);
@@ -141,7 +138,9 @@ export default function CreateMatchScreen() {
    * Reset form to create another match
    */
   const handleCreateAnother = useCallback(() => {
-    matchCreation.resetToNewMatch();
+    if (matchCreation.resetToNewMatch) {
+      matchCreation.resetToNewMatch();
+    }
   }, [matchCreation.resetToNewMatch]);
 
   /**
@@ -149,7 +148,9 @@ export default function CreateMatchScreen() {
    */
   const handleShareMatch = useCallback(async () => {
     try {
-      await matchCreation.shareMatch();
+      if (matchCreation.shareMatch) {
+        await matchCreation.shareMatch();
+      }
     } catch (error) {
       Alert.alert(
         'Share Failed',
@@ -161,9 +162,11 @@ export default function CreateMatchScreen() {
           {
             text: 'Copy Room Code',
             onPress: async () => {
-              const success = await matchCreation.copyRoomCode();
-              if (success) {
-                Alert.alert('Copied!', 'Room code copied to clipboard');
+              if (matchCreation.copyRoomCode) {
+                const success = await matchCreation.copyRoomCode();
+                if (success) {
+                  Alert.alert('Copied!', 'Room code copied to clipboard');
+                }
               }
             },
           },
@@ -176,28 +179,41 @@ export default function CreateMatchScreen() {
    * Handle copying room code
    */
   const handleCopyRoomCode = useCallback(async (): Promise<boolean> => {
-    const success = await matchCreation.copyRoomCode();
-    return success;
+    if (matchCreation.copyRoomCode) {
+      return await matchCreation.copyRoomCode();
+    }
+    return false;
   }, [matchCreation.copyRoomCode]);
 
   // Determine which view to show
   const showSuccessView = !!matchCreation.createdMatch;
 
-  return (
-    <>
-      {/* Header */}
-      <ScreenHeader
-        title={showSuccessView ? 'Match Created' : SCREEN_TITLES.CREATE_MATCH}
-        onBackPress={handleBackPress}
-        showBackButton={true}
-      />
+  // Safeguard for SCREEN_TITLES
+  const screenTitle = showSuccessView
+    ? 'Match Created'
+    : SCREEN_TITLES?.CREATE_MATCH || 'Create Match';
 
-      {/* Main Content */}
-      {showSuccessView ? (
+  console.log('Rendering view:', { showSuccessView, screenTitle });
+
+  return (
+    <SimpleScreen
+      showHeader={false}
+      style={{ backgroundColor: colors.background }}
+    >
+      <View style={[styles.customHeader, { borderBottomColor: colors.border }]}>
+        <Pressable style={styles.backButton} onPress={handleBackPress}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          {screenTitle}
+        </Text>
+        <View style={styles.backButton} />
+      </View>
+      {showSuccessView && matchCreation.createdMatch ? (
         <MatchCreatedDisplay
-          match={matchCreation.createdMatch!}
-          roomCode={matchCreation.roomCode!}
-          qrCodeData={matchCreation.qrCodeData!}
+          match={matchCreation.createdMatch}
+          roomCode={matchCreation.roomCode || ''}
+          qrCodeData={matchCreation.qrCodeData || ''}
           onCopyRoomCode={handleCopyRoomCode}
           onShareMatch={handleShareMatch}
           onCreateAnother={handleCreateAnother}
@@ -205,16 +221,36 @@ export default function CreateMatchScreen() {
         />
       ) : (
         <MatchForm
-          formData={matchCreation.formData}
-          errors={matchCreation.errors}
-          isCreating={matchCreation.isCreating}
-          isFormValid={matchCreation.isFormValid}
-          onUpdateField={handleUpdateField}
-          onUpdateFormData={handleUpdateFormData}
-          onCreateMatch={handleCreateMatch}
-          onClearError={handleClearError}
+          onSubmit={handleCreateMatch}
+          loading={matchCreation.isCreating || false}
+          serverError={
+            matchCreation.errors?.general
+              ? String(matchCreation.errors.general)
+              : undefined
+          }
         />
       )}
-    </>
+    </SimpleScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  customHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  backButton: {
+    padding: 8,
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+});

@@ -14,7 +14,7 @@ import {
   PlayerStatsData,
 } from '../../hooks/analytics/usePlayerStats';
 import { useTheme } from '../../hooks/ui/useTheme';
-import { Screen } from '../../components/Layout/Screen';
+import { SimpleScreen } from '../../components/Layout/Screen/SimpleScreen';
 import { Avatar } from '../../components/core/Avatar';
 import { Button } from '../../components/core/Button';
 import { Spinner, EmptyState } from '../../components/Layout/LoadingStates';
@@ -310,7 +310,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <Screen>
+    <SimpleScreen showHeader={false}>
       <ScrollView
         contentContainerStyle={styles.container}
         refreshControl={
@@ -323,7 +323,7 @@ export default function ProfileScreen() {
       >
         {renderContent()}
       </ScrollView>
-    </Screen>
+    </SimpleScreen>
   );
 }
 

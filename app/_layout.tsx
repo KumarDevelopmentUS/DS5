@@ -4,7 +4,6 @@ import { AuthProvider } from '../contexts/AuthContext';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { MatchProvider } from '../contexts/MatchContext';
-import { OfflineProvider } from '../contexts/OfflineContext';
 import { AuthNavigationWrapper } from '../components/auth/AuthNavigationWrapper';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -252,23 +251,21 @@ function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider>
-          <OfflineProvider>
-            <NotificationProvider>
-              <MatchProvider>
-                <AuthNavigationWrapper>
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      // Global screen options
-                      animation: 'slide_from_right', // Smooth transitions
-                      gestureEnabled: true, // Enable swipe back gesture
-                      contentStyle: { backgroundColor: 'transparent' }, // Prevent flash
-                    }}
-                  />
-                </AuthNavigationWrapper>
-              </MatchProvider>
-            </NotificationProvider>
-          </OfflineProvider>
+          <NotificationProvider>
+            <MatchProvider>
+              <AuthNavigationWrapper>
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    // Global screen options
+                    animation: 'slide_from_right', // Smooth transitions
+                    gestureEnabled: true, // Enable swipe back gesture
+                    contentStyle: { backgroundColor: 'transparent' }, // Prevent flash
+                  }}
+                />
+              </AuthNavigationWrapper>
+            </MatchProvider>
+          </NotificationProvider>
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>

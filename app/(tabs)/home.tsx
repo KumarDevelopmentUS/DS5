@@ -9,7 +9,7 @@ import {
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen } from '../../components/Layout/Screen';
+import { SimpleScreen } from '../../components/Layout/Screen/SimpleScreen';
 import { useAuth } from '../../hooks/auth/useAuth';
 import { Button } from '../../components/core/Button';
 import { Card } from '../../components/core/Card';
@@ -334,7 +334,11 @@ const HomeScreen = () => {
   );
 
   return (
-    <Screen testID="home-screen" style={{ backgroundColor: colors.background }}>
+    <SimpleScreen
+      showHeader={false}
+      style={{ backgroundColor: colors.background }}
+      testID="home-screen"
+    >
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
@@ -360,7 +364,7 @@ const HomeScreen = () => {
         onClose={() => setShowCreationModal(false)}
         testID="home-creation-modal"
       />
-    </Screen>
+    </SimpleScreen>
   );
 };
 

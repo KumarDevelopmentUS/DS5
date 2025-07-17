@@ -13,14 +13,14 @@ import {
   View,
 } from 'react-native';
 
-// Layout Components
+// Layout Components - CHANGED: Using SimpleScreen instead of Screen
 import {
   EmptyState,
   NoCommunitiesEmptyState,
   NoFriendsEmptyState,
   Spinner,
 } from '../../components/Layout/LoadingStates';
-import { Screen } from '../../components/Layout/Screen';
+import { SimpleScreen } from '../../components/Layout/Screen/SimpleScreen';
 
 // Core Components
 import { Badge } from '../../components/core/Badge';
@@ -341,6 +341,8 @@ const SocialScreen = () => {
         value={searchQuery}
         onChangeText={setSearchQuery}
         returnKeyType="search"
+        autoCapitalize="none"
+        autoCorrect={false}
       />
       {searchQuery.length > 0 && (
         <Pressable onPress={() => setSearchQuery('')}>
@@ -666,20 +668,20 @@ const SocialScreen = () => {
   };
 
   return (
-    <Screen
-      header={{
-        title: 'Social',
-        subtitle: profile?.username,
-      }}
+    <SimpleScreen
+      title="Social"
+      subtitle={profile?.username}
       style={{ backgroundColor: colors.background }}
-      testID="social-screen"
+      showHeader={true}
+      contentStyle={{ padding: 0 }} // Remove default padding since we handle it in components
     >
       {renderTabButtons()}
       {renderSearchBar()}
       {renderContent()}
-    </Screen>
+    </SimpleScreen>
   );
 };
+
 // Styles
 const styles = StyleSheet.create({
   // Tab navigation
@@ -809,4 +811,5 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
 });
+
 export default SocialScreen;

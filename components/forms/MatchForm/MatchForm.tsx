@@ -1,23 +1,23 @@
 // components/forms/MatchForm/MatchForm.tsx
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  StyleSheet,
   Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { MatchFormProps, MatchFormData } from './MatchForm.types';
-import { useTheme } from '../../../hooks/ui/useTheme';
-import { validateMatchTitle } from '../../../utils/validation';
-import { Input } from '../../core/Input';
-import { Button } from '../../core/Button';
 import { MATCH_SETTINGS } from '../../../constants/game';
 import { PLACEHOLDERS } from '../../../constants/messages';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '../../../constants/theme';
+import { BORDERS, COLORS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
+import { useTheme } from '../../../hooks/ui/useTheme';
+import { validateMatchTitle } from '../../../utils/validation';
+import { Button } from '../../core/Button';
+import { Input } from '../../core/Input';
+import { MatchFormData, MatchFormProps } from './MatchForm.types';
 
 /**
  * Match Creation Form - Simplified approach that works like AuthForm
@@ -351,7 +351,7 @@ export const MatchForm: React.FC<MatchFormProps> = ({
                           styles.optionTextActive,
                       ]}
                     >
-                      {option}
+                      {String(option)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -384,7 +384,7 @@ export const MatchForm: React.FC<MatchFormProps> = ({
               </View>
             </View>
 
-            {/* Sink Points */}
+            {/* Sink Points - FIXED */}
             <View style={styles.settingGroup}>
               <Text style={styles.settingLabel}>Sink Points</Text>
               <Text style={styles.settingDescription}>
@@ -408,7 +408,7 @@ export const MatchForm: React.FC<MatchFormProps> = ({
                           styles.optionTextActive,
                       ]}
                     >
-                      {option} pts
+                      {String(option) + ' pts'}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -467,10 +467,12 @@ export const MatchForm: React.FC<MatchFormProps> = ({
             </View>
           )}
 
-          {/* Buttons - Same pattern as AuthForm */}
+          {/* Buttons - FIXED: Removed extra Text wrapper */}
           <View style={styles.buttonContainer}>
             <Button onPress={handleSubmit} loading={loading}>
-              <Text>{loading ? 'Creating Match...' : 'Create Match'}</Text>
+              <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+                {loading ? 'Creating Match...' : 'Create Match'}
+              </Text>
             </Button>
           </View>
 
