@@ -106,11 +106,11 @@ const HomeScreen = () => {
 
   const handleJoinMatch = () => {
     // Navigate to join match screen or show room code input
-    router.push('/match/join');
+    router.push('/match/join' as any);
   };
 
   const handleViewMatch = (matchId: string) => {
-    router.push(MATCH_ROUTES.live(matchId));
+    router.push(MATCH_ROUTES.live(matchId) as any);
   };
 
   const handleViewStats = () => {
@@ -118,7 +118,7 @@ const HomeScreen = () => {
   };
 
   const handleViewHistory = () => {
-    router.push('/match/history');
+    router.push('/match/history' as any);
   };
 
   // Render welcome header

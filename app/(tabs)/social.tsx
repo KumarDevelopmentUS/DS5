@@ -214,7 +214,7 @@ const SocialScreen = () => {
   };
 
   const handleCreateCommunity = () => {
-    router.push('/social/community/create');
+    router.push('/social/community/create' as any);
   };
 
   const handleViewAllFriends = () => {
@@ -222,7 +222,7 @@ const SocialScreen = () => {
   };
 
   const handleFindFriends = () => {
-    router.push('/social/friends/find');
+    router.push('/social/friends/find' as any);
   };
 
   // Render tab buttons

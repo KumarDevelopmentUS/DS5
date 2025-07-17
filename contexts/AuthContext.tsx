@@ -181,7 +181,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           id: data.id,
           username: data.username,
           nickname: data.nickname || undefined, // Convert null to undefined
-          email: user?.email || '',
           avatarUrl: data.avatar_url || undefined, // Convert null to undefined
           school: data.school || undefined, // Convert null to undefined
           isPublic: data.is_public || true,
