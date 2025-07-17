@@ -2,6 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../../types/database.types';
 import { API_CONFIG } from '../../constants/config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 /**
  * Supabase Database Service
@@ -37,17 +39,19 @@ if (!API_CONFIG.SUPABASE_ANON_KEY) {
  * - Real-time features enabled for live match updates
  * - URL detection disabled (not needed for mobile apps)
  */
+const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+
 export const supabase = createClient<Database>(
   API_CONFIG.SUPABASE_URL,
   API_CONFIG.SUPABASE_ANON_KEY,
   {
     auth: {
       // Session persistence configuration
-      // Note: AsyncStorage will be configured automatically by Supabase
-      // when running in React Native environment
+      // Explicitly set AsyncStorage for Expo persistent login support
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false, // Not needed for mobile apps
+      ...(isNative ? { storage: AsyncStorage } : {}), // Only set storage on native
 
       // Storage configuration for React Native
       // Supabase will automatically use AsyncStorage when available
