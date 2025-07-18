@@ -85,6 +85,28 @@ export default function LiveMatchScreen() {
     matchStatus: match?.status,
   });
 
+  // Map participants to use custom player names from match.settings
+  const playerNames = match?.settings?.playerNames || {};
+  const team1Players = participants.filter((p) => p.team === 'team1');
+  const team2Players = participants.filter((p) => p.team === 'team2');
+  const participantsWithCustomNames = participants.map((p, idx) => {
+    let customName = p.username;
+    if (p.team === 'team1') {
+      if (team1Players[0] && p.userId === team1Players[0].userId) {
+        customName = playerNames.player1 || p.username;
+      } else if (team1Players[1] && p.userId === team1Players[1].userId) {
+        customName = playerNames.player2 || p.username;
+      }
+    } else if (p.team === 'team2') {
+      if (team2Players[0] && p.userId === team2Players[0].userId) {
+        customName = playerNames.player3 || p.username;
+      } else if (team2Players[1] && p.userId === team2Players[1].userId) {
+        customName = playerNames.player4 || p.username;
+      }
+    }
+    return { ...p, username: customName };
+  });
+
   // Determine current user's team
   const currentUserTeam = useMemo(() => {
     if (!user?.id || !participants.length) {
@@ -460,7 +482,7 @@ export default function LiveMatchScreen() {
         {/* Scoreboard */}
         <Scoreboard
           match={match}
-          participants={participants}
+          participants={participantsWithCustomNames}
           currentScore={currentScore}
           playerStats={playerStats}
           isConnected={isConnected}
@@ -627,7 +649,7 @@ export default function LiveMatchScreen() {
           {currentUserTeam && participants.length > 0 ? (
             <PlayLogger
               matchId={matchId!}
-              participants={participants} // Pass all participants for now
+              participants={participantsWithCustomNames}
               currentTeam={currentUserTeam}
               isSubmitting={isSubmittingPlay}
               disabled={false} // Enable for testing
