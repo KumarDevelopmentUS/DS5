@@ -24,7 +24,7 @@ const DEFAULT_OPTIONS: CreationOption[] = [
     description: MESSAGES.CREATION_MODAL.OPTIONS.MATCH.DESCRIPTION,
     iconName: MESSAGES.CREATION_MODAL.OPTIONS.MATCH.ICON_NAME,
     route: MATCH_ROUTES.create(),
-    requiresAuth: true,
+    requiresAuth: false, // Allow guests to create matches
     requiresPermission: false,
   },
   {
@@ -136,6 +136,23 @@ export const CreationModal: React.FC<CreationModalProps> = ({
         MESSAGES.GENERAL.INFO,
         `${option.title} is coming soon! Stay tuned for updates.`,
         [{ text: MESSAGES.GENERAL.DONE, style: 'default' }]
+      );
+      return;
+    }
+
+    // Show guest warning for match creation
+    if (option.id === 'match' && !isAuthenticated) {
+      Alert.alert(
+        'Guest Mode',
+        'You\'re creating a match as a guest. Your match data will not be saved to the database. Sign in to save your progress and access all features.',
+        [
+          { text: 'Continue as Guest', style: 'default' },
+          { text: 'Sign In', style: 'default', onPress: () => {
+            onClose();
+            router.push('/(auth)/login');
+          }},
+          { text: 'Cancel', style: 'cancel' }
+        ]
       );
       return;
     }

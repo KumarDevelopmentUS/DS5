@@ -16,6 +16,22 @@ export const StatsGrid: React.FC<StatsGridProps> = ({
   const cardWidth =
     (screenWidth - SPACING.md * 2 - SPACING.sm * (columns - 1)) / columns;
 
+  // Handle undefined or null stats
+  if (!stats || stats.length === 0) {
+    return (
+      <View style={[styles.container, style]} testID={testID}>
+        <View style={[styles.gridItem, { width: cardWidth }]}>
+          <StatCard
+            title="No Stats"
+            value="--"
+            subtitle="Play matches to see your stats"
+            size="small"
+          />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, style]} testID={testID}>
       {stats.map((stat, index) => (

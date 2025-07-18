@@ -287,6 +287,7 @@ export type Database = {
           game_type: string
           id: string
           is_public: boolean | null
+          live_match_data: Json | null
           location: string | null
           room_code: string
           settings: Json | null
@@ -302,6 +303,7 @@ export type Database = {
           game_type?: string
           id?: string
           is_public?: boolean | null
+          live_match_data?: Json | null
           location?: string | null
           room_code: string
           settings?: Json | null
@@ -317,6 +319,7 @@ export type Database = {
           game_type?: string
           id?: string
           is_public?: boolean | null
+          live_match_data?: Json | null
           location?: string | null
           room_code?: string
           settings?: Json | null

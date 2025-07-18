@@ -400,3 +400,95 @@ export interface ProfileFormData {
   theme: Theme;
   notifications: NotificationSettings;
 }
+
+// Live player statistics for a specific match (stored in match document)
+export interface LivePlayerStats {
+  // Basic info
+  name: string;
+  
+  // Throwing statistics
+  throws: number;
+  hits: number;
+  score: number;
+  
+  // Specific throw types (from rulebook)
+  tableDie: number;
+  line: number;
+  hit: number;
+  knicker: number;
+  goal: number;
+  dink: number;
+  sink: number;
+  short: number;
+  long: number;
+  side: number;
+  height: number;
+  
+  // Defensive statistics
+  catches: number;
+  catchPlusAura: number;
+  drop: number;
+  miss: number;
+  twoHands: number;
+  body: number;
+  
+  // FIFA statistics
+  fifaAttempts: number;
+  fifaSuccess: number;
+  goodKick: number;
+  badKick: number;
+  
+  // Streak and special
+  hitStreak: number;
+  currentlyOnFire: boolean;
+  onFireCount: number;
+  
+  // Blunders and special throws
+  blunders: number;
+  specialThrows: number;
+  lineThrows: number;
+  
+  // Aura (special defensive stat)
+  aura: number;
+}
+
+// Live match data structure (stored in match document)
+export interface LiveMatchData {
+  // Live player statistics for all 4 positions
+  livePlayerStats: {
+    [position: string]: LivePlayerStats; // "1", "2", "3", "4"
+  };
+  
+  // Team penalties
+  liveTeamPenalties: {
+    [teamId: string]: number; // "1", "2"
+  };
+  
+  // Match setup (from your example)
+  matchSetup: {
+    arena: string;
+    gameScoreLimit: number;
+    sinkPoints: number;
+    winByTwo: boolean;
+    title: string;
+    teamNames: {
+      [teamId: string]: string; // "1", "2"
+    };
+    playerNames: {
+      [position: string]: string; // "1", "2", "3", "4"
+    };
+  };
+  
+  // Participants and player mapping
+  participants: string[]; // Array of user IDs
+  playerMap: {
+    [userId: string]: string; // Maps user ID to position "1", "2", "3", "4"
+  };
+  
+  // Recent plays (last 4 as requested)
+  recentPlays: any[]; // Array of the last 4 plays
+  
+  // Match info
+  roomCode: string;
+  status: string;
+}

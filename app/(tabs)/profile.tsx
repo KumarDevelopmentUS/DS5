@@ -28,7 +28,7 @@ import {
   Achievement as GridAchievement,
 } from '../../components/social/AchievementGrid';
 import { SPACING, TYPOGRAPHY, BORDERS } from '../../constants/theme';
-import { router } from 'expo-router';
+import { router, useRouter } from 'expo-router';
 import { User, PlayerStats, Achievement } from '../../types/models';
 
 type ProfileTab = 'overview' | 'stats' | 'achievements';
@@ -205,124 +205,246 @@ const SegmentedControl = ({
 // Main Profile Screen Component
 // ==================================
 export default function ProfileScreen() {
-  const { user, profile } = useAuth();
-  const { stats, achievements, ranking, isLoading, isError, error, refetch } =
-    usePlayerStats(user?.id);
+  const { user, profile, isAuthenticated, isGuest } = useAuth();
   const { colors } = useTheme();
+  const router = useRouter();
+
+  // State management
   const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = useCallback(() => {
-    refetch();
-  }, [refetch]);
+  // Player stats hook
+  const {
+    data: playerStats,
+    isLoading: isLoadingStats,
+    refetch: refetchStats,
+  } = usePlayerStats(user?.id);
 
+  // Handle authentication actions
+  const handleSignIn = () => {
+    router.push('/(auth)/login');
+  };
+
+  const handleSignUp = () => {
+    router.push('/(auth)/signup');
+  };
+
+  // Handle refresh
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetchStats();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchStats]);
+
+  // Render guest content
+  const renderGuestContent = () => (
+    <View style={styles.guestContent}>
+      <View style={styles.guestIconContainer}>
+        <Ionicons name="person-circle" size={80} color={colors.primary} />
+      </View>
+      <Text style={[styles.guestTitle, { color: colors.text }]}>
+        Welcome to Your Profile
+      </Text>
+      <Text style={[styles.guestMessage, { color: colors.textSecondary }]}>
+        Sign in to view your stats, achievements, and track your progress.
+      </Text>
+      <View style={styles.guestButtons}>
+        <Button
+          variant="primary"
+          size="large"
+          onPress={handleSignIn}
+          icon={<Ionicons name="log-in" size={20} color="#FFFFFF" />}
+          style={styles.guestButton}
+        >
+          Sign In
+        </Button>
+        <Button
+          variant="outline"
+          size="large"
+          onPress={handleSignUp}
+          icon={<Ionicons name="person-add" size={20} color="#000000" />}
+          style={styles.guestButton}
+        >
+          Sign Up
+        </Button>
+      </View>
+    </View>
+  );
+
+  // Render content based on authentication status
   const renderContent = () => {
-    if (isLoading && !stats) {
-      return (
-        <View style={styles.loadingContainer}>
-          <Spinner size="large" />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading profile...
-          </Text>
-        </View>
-      );
+    if (isGuest) {
+      return renderGuestContent();
     }
 
-    if (isError) {
-      // Displaying a simple error message instead of the EmptyState component
-      return (
-        <View style={styles.loadingContainer}>
-          <Text style={[styles.errorText, { color: colors.error }]}>
-            Error: {error?.message || 'Could not fetch your stats.'}
-          </Text>
-          <Button
-            onPress={refetch}
-            variant="primary"
-            style={{ marginTop: SPACING.md }}
+    if (!user || !profile) {
+      return <Spinner />;
+    }
+
+    switch (activeTab) {
+      case 'overview':
+        return (
+          <ScrollView
+            style={styles.content}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            }
           >
-            Try Again
-          </Button>
-        </View>
-      );
+            <ProfileHeader
+              profile={profile}
+              stats={playerStats?.stats || null}
+              ranking={playerStats?.ranking || { globalRank: 'N/A', percentile: 0 }}
+            />
+            <SegmentedControl selected={activeTab} onSelect={setActiveTab} />
+            <View style={styles.overviewContent}>
+              <StatsGrid 
+                stats={
+                  playerStats?.stats ? [
+                    {
+                      label: 'Win Rate',
+                      value: `${playerStats.stats.winRate?.toFixed(1) || '0'}%`,
+                      icon: 'podium-outline',
+                      color: colors.primary,
+                      description: `${playerStats.stats.totalMatches || 0} matches`,
+                    },
+                    {
+                      label: 'Hit Rate',
+                      value: `${playerStats.stats.hitRate?.toFixed(1) || '0'}%`,
+                      icon: 'target-outline',
+                      color: colors.success,
+                      description: `${playerStats.stats.totalHits || 0} hits`,
+                    },
+                    {
+                      label: 'Catch Rate',
+                      value: `${playerStats.stats.catchRate?.toFixed(1) || '0'}%`,
+                      icon: 'hand-left-outline',
+                      color: colors.secondary,
+                      description: `${playerStats.stats.totalCatches || 0} catches`,
+                    },
+                    {
+                      label: 'Best Streak',
+                      value: playerStats.stats.longestStreak || 0,
+                      icon: 'flame-outline',
+                      color: colors.warning,
+                      description: 'Consecutive wins',
+                    },
+                  ] : []
+                }
+              />
+              {playerStats?.stats && (
+                <ComparisonRow 
+                  data={{
+                    label: 'Win/Loss Ratio',
+                    value1: playerStats.stats.totalWins || 0,
+                    value2: playerStats.stats.totalLosses || 0,
+                    unit: '',
+                    showDifference: true,
+                    invertComparison: false,
+                  }}
+                  player1Name="Wins"
+                  player2Name="Losses"
+                />
+              )}
+            </View>
+          </ScrollView>
+        );
+
+      case 'stats':
+        return (
+          <ScrollView
+            style={styles.content}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            }
+          >
+            <ProfileHeader
+              profile={profile}
+              stats={playerStats?.stats || null}
+              ranking={playerStats?.ranking || { globalRank: 'N/A', percentile: 0 }}
+            />
+            <SegmentedControl selected={activeTab} onSelect={setActiveTab} />
+            <View style={styles.statsContent}>
+              {isLoadingStats ? (
+                <Spinner />
+              ) : playerStats?.stats ? (
+                <View style={styles.statsCards}>
+                  <StatCard
+                    title="Win Rate"
+                    value={`${playerStats.stats.winRate?.toFixed(1) || '0'}%`}
+                    subtitle={`From ${playerStats.stats.totalMatches || 0} matches`}
+                    icon="podium-outline"
+                    size="large"
+                    color={colors.primary}
+                  />
+                  <StatCard
+                    title="Hit Rate"
+                    value={`${playerStats.stats.hitRate?.toFixed(1) || '0'}%`}
+                    subtitle={`${playerStats.stats.totalHits || 0} hits`}
+                    icon="target-outline"
+                    size="large"
+                    color={colors.success}
+                  />
+                  <StatCard
+                    title="Catch Rate"
+                    value={`${playerStats.stats.catchRate?.toFixed(1) || '0'}%`}
+                    subtitle={`${playerStats.stats.totalCatches || 0} catches`}
+                    icon="hand-left-outline"
+                    size="large"
+                    color={colors.secondary}
+                  />
+                </View>
+              ) : (
+                <EmptyState
+                  title="No Stats Available"
+                  message="Play some matches to see your statistics here."
+                />
+              )}
+            </View>
+          </ScrollView>
+        );
+
+      case 'achievements':
+        return (
+          <ScrollView
+            style={styles.content}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            }
+          >
+            <ProfileHeader
+              profile={profile}
+              stats={playerStats?.stats || null}
+              ranking={playerStats?.ranking || { globalRank: 'N/A', percentile: 0 }}
+            />
+            <SegmentedControl selected={activeTab} onSelect={setActiveTab} />
+            <View style={styles.achievementsContent}>
+              {isLoadingStats ? (
+                <Spinner />
+              ) : playerStats?.achievements ? (
+                <AchievementGrid
+                  achievements={transformAchievementsForGrid(playerStats.achievements)}
+                />
+              ) : (
+                <EmptyState
+                  title="No Achievements"
+                  message="Complete challenges to unlock achievements."
+                />
+              )}
+            </View>
+          </ScrollView>
+        );
+
+      default:
+        return null;
     }
-
-    if (!stats) {
-      return (
-        <EmptyState
-          title="No Stats Yet"
-          message="Play your first match to see your profile stats here!"
-        />
-      );
-    }
-
-    const gridAchievements = transformAchievementsForGrid(achievements);
-
-    return (
-      <>
-        <ProfileHeader profile={profile} stats={stats} ranking={ranking} />
-        <SegmentedControl selected={activeTab} onSelect={setActiveTab} />
-        <View style={styles.contentContainer}>
-          {activeTab === 'overview' && (
-            <>
-              <StatCard
-                title="Win Rate"
-                value={`${stats.winRate.toFixed(1)}%`}
-                subtitle={`From ${stats.totalMatches} matches`}
-                icon="podium-outline"
-                size="large"
-                color={colors.primary}
-              />
-              <AchievementGrid
-                title="Recent Achievements"
-                achievements={gridAchievements.slice(0, 4)}
-              />
-            </>
-          )}
-          {activeTab === 'stats' && (
-            <>
-              <ComparisonRow
-                data={{
-                  label: 'Win/Loss Ratio',
-                  value1: stats.totalWins,
-                  value2: stats.totalLosses,
-                }}
-                player1Name="Wins"
-                player2Name="Losses"
-              />
-              <StatsGrid
-                stats={[
-                  { label: 'Hit Rate', value: `${stats.hitRate.toFixed(1)}%` },
-                  {
-                    label: 'Catch Rate',
-                    value: `${stats.catchRate.toFixed(1)}%`,
-                  },
-                  { label: 'Total Sinks', value: stats.totalSinks },
-                  { label: 'Longest Streak', value: stats.longestStreak },
-                ]}
-              />
-            </>
-          )}
-          {activeTab === 'achievements' && (
-            <AchievementGrid achievements={gridAchievements} />
-          )}
-        </View>
-      </>
-    );
   };
 
   return (
     <SimpleScreen showHeader={false}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {renderContent()}
-      </ScrollView>
+      {renderContent()}
     </SimpleScreen>
   );
 }
@@ -407,6 +529,49 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   contentContainer: {
+    gap: SPACING.md,
+  },
+  guestContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  guestIconContainer: {
+    marginBottom: SPACING.md,
+  },
+  guestTitle: {
+    fontSize: TYPOGRAPHY.sizes.title2,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    marginBottom: SPACING.xs,
+  },
+  guestMessage: {
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+  },
+  guestButtons: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  guestButton: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+  },
+  overviewContent: {
+    gap: SPACING.md,
+  },
+  statsContent: {
+    padding: SPACING.md,
+  },
+  achievementsContent: {
+    padding: SPACING.md,
+  },
+  statsCards: {
     gap: SPACING.md,
   },
 });

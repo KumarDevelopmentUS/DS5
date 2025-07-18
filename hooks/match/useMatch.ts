@@ -3,11 +3,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Match,
-  MatchEvent,
   Player,
   TeamScore,
   PlayerMatchStats,
-  EventData,
+  LiveMatchData,
+  LivePlayerStats,
 } from '../../types/models';
 import { MatchStatus, PlayType } from '../../types/enums';
 import { ApiError, ApiResponse } from '../../types/api';
@@ -59,7 +59,7 @@ export interface UseMatchState {
   // Core match data
   match: Match | null;
   participants: Player[];
-  events: MatchEvent[];
+  liveMatchData: LiveMatchData | null;
   currentScore: TeamScore;
 
   // Real-time state
@@ -77,7 +77,7 @@ export interface UseMatchState {
   lastUpdated: Date | null;
 
   // Player statistics
-  playerStats: Record<string, PlayerMatchStats>;
+  playerStats: Record<string, LivePlayerStats>;
   mvpPlayer: Player | null;
 }
 
@@ -145,13 +145,13 @@ export const useMatch = (
 
   // Core match state
   const [participants, setParticipants] = useState<Player[]>([]);
-  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [liveMatchData, setLiveMatchData] = useState<LiveMatchData | null>(null);
   const [currentScore, setCurrentScore] = useState<TeamScore>({
     team1: 0,
     team2: 0,
   });
   const [playerStats, setPlayerStats] = useState<
-    Record<string, PlayerMatchStats>
+    Record<string, LivePlayerStats>
   >({});
   const [mvpPlayer, setMvpPlayer] = useState<Player | null>(null);
 
@@ -189,18 +189,19 @@ export const useMatch = (
     staleTime: 30000, // Consider data stale after 30 seconds
   });
 
-  // Events query
-  const { data: eventsData } = useQuery<MatchEvent[], Error>({
-    queryKey: ['match', matchId, 'events'],
+  // Live match data query
+  const { data: liveData, refetch: refetchLiveData } = useQuery<LiveMatchData | null, Error>({
+    queryKey: ['match', matchId, 'live-data'],
     queryFn: async () => {
-      const result = await matchService.getMatchEvents(matchId);
-      if (!result.success || !result.data) {
-        throw new Error(result.error?.message || 'Failed to fetch events');
+      const result = await matchService.getLiveMatchData(matchId);
+      if (!result.success) {
+        throw new Error(result.error?.message || 'Failed to fetch live match data');
       }
       return result.data;
     },
-    enabled: !!matchId && !!match,
-    refetchInterval: enableRealtime ? false : 10000, // Refetch every 10s if not using realtime
+    enabled: !!matchId,
+    refetchInterval: enableRealtime ? false : 5000, // Refetch every 5s if not using realtime
+    staleTime: 5000, // Consider data stale after 5 seconds
   });
 
   // Play submission mutation
@@ -212,38 +213,19 @@ export const useMatch = (
       }
       return result.data;
     },
-    onSuccess: (newEvent) => {
-      // Update local events
-      setEvents((prev) => [...prev, newEvent]);
+    onSuccess: (success) => {
+      if (success) {
+        // Refresh live match data to get updated stats
+        refetchLiveData();
+        
+        // Refresh stats if enabled
+        if (includeStats) {
+          refreshStats();
+        }
 
-      // Update score
-      if (newEvent.eventData.points && newEvent.team) {
-        setCurrentScore((prev) => ({
-          ...prev,
-          [newEvent.team!]:
-            (prev[newEvent.team!] || 0) + newEvent.eventData.points!,
-        }));
+        // Update last updated timestamp
+        setLastUpdated(new Date());
       }
-
-      // Broadcast to other clients if connected
-      if (isConnected && enableRealtime) {
-        const broadcastData: BroadcastPlayData = {
-          playerId: newEvent.playerId,
-          eventType: newEvent.eventType,
-          eventData: newEvent.eventData,
-          team: newEvent.team || '',
-          timestamp: newEvent.timestamp,
-        };
-        realtimeService.broadcastPlay(matchId, broadcastData);
-      }
-
-      // Refresh stats if enabled
-      if (includeStats) {
-        refreshStats();
-      }
-
-      // Update last updated timestamp
-      setLastUpdated(new Date());
     },
     onError: (error) => {
       const parsedError = handleError(error, { action: 'submitPlay', matchId });
@@ -326,10 +308,10 @@ export const useMatch = (
 
           onNewEvent: (event) => {
             // Add new event
-            setEvents((prev) => {
-              const exists = prev.some((e) => e.id === event.id);
-              return exists ? prev : [...prev, event];
-            });
+            // setEvents((prev) => { // This line is removed as per the new_code
+            //   const exists = prev.some((e) => e.id === event.id);
+            //   return exists ? prev : [...prev, event];
+            // });
 
             // Update score if applicable
             if (event.eventData.points && event.team) {
@@ -422,47 +404,44 @@ export const useMatch = (
 
   // Update events when events data changes
   useEffect(() => {
-    if (eventsData) {
-      setEvents(eventsData);
+    if (liveData) {
+      setLiveMatchData(liveData);
     }
-  }, [eventsData]);
+  }, [liveData]);
 
-  // Calculate player stats when events change
+  // Calculate player stats when live match data changes
   useEffect(() => {
-    if (events.length > 0 && includeStats) {
-      const statsPromises = participants.map(async (participant) => {
-        const result = await matchService.getPlayerMatchStats(
-          matchId,
-          participant.userId
-        );
-        return {
-          playerId: participant.userId,
-          stats: result.success ? result.data : null,
-        };
+    if (liveMatchData?.livePlayerStats && includeStats) {
+      const newStats: Record<string, LivePlayerStats> = {};
+      
+      // Convert position-based stats to user-based stats
+      Object.entries(liveMatchData.livePlayerStats).forEach(([position, stats]) => {
+        // Find the user ID for this position
+        const userId = Object.entries(liveMatchData.playerMap).find(
+          ([uid, pos]) => pos === position
+        )?.[0];
+        
+        if (userId) {
+          newStats[userId] = stats;
+        }
       });
+      
+      setPlayerStats(newStats);
 
-      Promise.all(statsPromises).then((results) => {
-        const newStats: Record<string, PlayerMatchStats> = {};
-        results.forEach(({ playerId, stats }) => {
-          if (stats) {
-            newStats[playerId] = stats;
-          }
-        });
-        setPlayerStats(newStats);
+      // Calculate MVP from participants
+      const playersWithStats = participants
+        .map((p) => ({
+          ...p,
+          stats: newStats[p.userId],
+        }))
+        .filter((p): p is Player & { stats: LivePlayerStats } => !!p.stats);
 
-        // Calculate MVP
-        const playersWithStats = participants
-          .map((p) => ({
-            ...p,
-            stats: newStats[p.userId],
-          }))
-          .filter((p) => p.stats);
-
-        const mvp = calculateMVP(playersWithStats as any);
+      if (playersWithStats.length > 0) {
+        const mvp = calculateMVP(playersWithStats);
         setMvpPlayer(mvp);
-      });
+      }
     }
-  }, [events, participants, matchId, includeStats]);
+  }, [liveMatchData, participants, matchId, includeStats]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -686,7 +665,7 @@ export const useMatch = (
     // State
     match: match || null,
     participants,
-    events,
+    liveMatchData, // Changed from 'events' to 'liveMatchData'
     currentScore,
     presentPlayers,
     isConnected,

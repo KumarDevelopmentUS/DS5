@@ -39,6 +39,16 @@ export interface MatchCreationFormData {
   winByTwo: boolean;
   sinkPoints: 3 | 5;
 
+  // Team Names
+  team1Name: string;
+  team2Name: string;
+
+  // Player Names
+  player1Name: string;
+  player2Name: string;
+  player3Name: string;
+  player4Name: string;
+
   // Visibility
   isPublic: boolean;
 
@@ -123,6 +133,16 @@ const getDefaultFormData = (): MatchCreationFormData => ({
   scoreLimit: MATCH_SETTINGS.DEFAULT_SCORE_LIMIT, // 11
   winByTwo: MATCH_SETTINGS.DEFAULT_WIN_BY_TWO, // true
   sinkPoints: MATCH_SETTINGS.DEFAULT_SINK_POINTS as 3 | 5, // 3
+
+  // Team Names
+  team1Name: '',
+  team2Name: '',
+
+  // Player Names
+  player1Name: '',
+  player2Name: '',
+  player3Name: '',
+  player4Name: '',
 
   // Visibility
   isPublic: MATCH_SETTINGS.DEFAULT_VISIBILITY === 'public', // true
@@ -333,17 +353,6 @@ export const useMatchCreation = (): UseMatchCreationReturn => {
    * Creates the match using the current form data
    */
   const createMatch = useCallback(async (): Promise<ApiResponse<Match>> => {
-    if (!isAuthenticated || !user) {
-      const error = ERROR_MESSAGES.UNAUTHORIZED;
-      setErrors({ general: error });
-      return {
-        data: null,
-        error: { code: 'AUTH_REQUIRED', message: error },
-        success: false,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
     // Validate form before creating
     if (!validateForm()) {
       const error =
@@ -372,22 +381,41 @@ export const useMatchCreation = (): UseMatchCreationReturn => {
         winByTwo: formData.winByTwo,
         sinkPoints: formData.sinkPoints,
         isPublic: formData.isPublic,
-        settings: {
-          teamNames: {
-            team1: formData.team1Name,
-            team2: formData.team2Name,
-          },
-          playerNames: {
-            player1: formData.player1Name,
-            player2: formData.player2Name,
-            player3: formData.player3Name,
-            player4: formData.player4Name,
-          },
+        teamNames: {
+          team1: formData.team1Name,
+          team2: formData.team2Name,
+        },
+        playerNames: {
+          player1: formData.player1Name,
+          player2: formData.player2Name,
+          player3: formData.player3Name,
+          player4: formData.player4Name,
         },
       };
 
-      // Create the match
-      const result = await matchService.createMatch(createMatchData, user.id);
+      let result: ApiResponse<Match>;
+
+      if (isAuthenticated && user) {
+        // Create authenticated match
+        result = await matchService.createMatch(createMatchData, user.id);
+      } else {
+        // Create guest match
+        const { EnhancedMatchService } = await import('../../services/match/enhancedMatchService');
+        const enhancedMatchData = {
+          ...createMatchData,
+          settings: {
+            scoreLimit: formData.scoreLimit,
+            winByTwo: formData.winByTwo,
+            sinkPoints: formData.sinkPoints,
+            teamNames: createMatchData.teamNames || { team1: 'Team 1', team2: 'Team 2' },
+            playerNames: createMatchData.playerNames || { player1: 'Player 1', player2: 'Player 2', player3: 'Player 3', player4: 'Player 4' },
+            trackAdvancedStats: true,
+            enableSpectators: true,
+          },
+        };
+        result = await EnhancedMatchService.createGuestMatch(enhancedMatchData);
+      }
+
       console.log('Match creation result:', result);
 
       if (result.success && result.data) {

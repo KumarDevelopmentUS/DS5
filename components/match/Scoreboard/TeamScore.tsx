@@ -84,10 +84,12 @@ const styles = StyleSheet.create({
     color: COLORS.light.success,
   },
   playersContainer: {
-    gap: SPACING.sm,
+    flexDirection: 'row',
+    gap: SPACING.xs, // Reduced gap to make players more squished
   },
   playerItem: {
-    marginBottom: SPACING.xs,
+    flex: 1, // Each player takes equal space
+    marginBottom: 0, // Remove vertical margin since they're side by side
   },
   emptySlot: {
     padding: SPACING.sm,

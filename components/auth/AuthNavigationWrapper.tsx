@@ -10,6 +10,9 @@ interface AuthNavigationWrapperProps {
 /**
  * This component handles automatic navigation based on authentication state.
  * It should wrap your entire app layout.
+ * 
+ * Guest users can access the home page and most features.
+ * Only redirects to auth when explicitly needed (e.g., accessing protected features).
  */
 export const AuthNavigationWrapper: React.FC<AuthNavigationWrapperProps> = ({
   children,
@@ -35,15 +38,15 @@ export const AuthNavigationWrapper: React.FC<AuthNavigationWrapperProps> = ({
       initializing,
     });
 
-    if (!isAuthenticated && !inAuthGroup) {
-      // User is not authenticated and not in auth routes, redirect to login
-      console.log('Redirecting to login...');
-      router.replace('/login');
-    } else if (isAuthenticated && inAuthGroup) {
+    // Only redirect authenticated users away from auth routes
+    if (isAuthenticated && inAuthGroup) {
       // User is authenticated but still in auth routes, redirect to main app
       console.log('Redirecting to main app...');
-      router.replace('/(tabs)/home'); // Replace with your main app route
+      router.replace('/(tabs)/home');
     }
+    
+    // Note: We no longer redirect unauthenticated users to login
+    // They can access the home page as guests
   }, [isAuthenticated, initializing, segments]);
 
   return <>{children}</>;

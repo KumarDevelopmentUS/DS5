@@ -1,4 +1,4 @@
-// components/forms/MatchForm/MatchForm.tsx
+// components/forms/MatchForm/MatchForm.tsx - UPDATED VERSION
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -17,17 +17,37 @@ import { useTheme } from '../../../hooks/ui/useTheme';
 import { validateMatchTitle } from '../../../utils/validation';
 import { Button } from '../../core/Button';
 import { Input } from '../../core/Input';
-import { MatchFormData, MatchFormProps } from './MatchForm.types';
+import { TrackerMatchFormData } from '../../../types/tracker';
+
+// Updated form props to use tracker types
+interface MatchFormProps {
+  onSubmit: (data: TrackerMatchFormData) => Promise<void>;
+  loading: boolean;
+  serverError?: string | null;
+  onCancel?: () => void;
+}
+
+// Updated validation errors
+interface MatchFormErrors {
+  title?: string;
+  description?: string;
+  location?: string;
+  scoreLimit?: string;
+  sinkPoints?: string;
+  team1Name?: string;
+  team2Name?: string;
+  player1Name?: string;
+  player2Name?: string;
+  player3Name?: string;
+  player4Name?: string;
+  general?: string;
+}
 
 /**
- * Match Creation Form - Simplified approach that works like AuthForm
+ * Enhanced Match Creation Form
  *
- * Key differences from the broken version:
- * - Uses useState instead of complex useForm hook
- * - Updates only when user finishes editing (onBlur/onEndEditing)
- * - No complex prop passing that breaks
- * - Self-contained and simple
- * - Now includes player name slots with defaults
+ * Now includes all team and player name fields for the tracker system
+ * Stores complete match configuration including display names
  */
 export const MatchForm: React.FC<MatchFormProps> = ({
   onSubmit,
@@ -37,8 +57,8 @@ export const MatchForm: React.FC<MatchFormProps> = ({
 }) => {
   const { colors } = useTheme();
 
-  // Simple state management with default values
-  const [formData, setFormData] = useState<MatchFormData>({
+  // Enhanced form data with all required fields
+  const [formData, setFormData] = useState<TrackerMatchFormData>({
     title: 'Match',
     description: 'Die up!',
     location: 'The Grand Dome',
@@ -46,28 +66,26 @@ export const MatchForm: React.FC<MatchFormProps> = ({
     winByTwo: MATCH_SETTINGS.DEFAULT_WIN_BY_TWO,
     sinkPoints: MATCH_SETTINGS.DEFAULT_SINK_POINTS as 3 | 5,
     isPublic: false,
-    // Default player names
+    // Team names
+    team1Name: 'Team 1',
+    team2Name: 'Team 2',
+    // Player names
     player1Name: 'Player 1',
     player2Name: 'Player 2',
     player3Name: 'Player 3',
     player4Name: 'Player 4',
-    // Default team names
-    team1Name: 'Team 1',
-    team2Name: 'Team 2',
   });
 
   // Track which fields have been edited by the user
-  const [editedFields, setEditedFields] = useState<Set<keyof MatchFormData>>(
-    new Set()
-  );
+  const [editedFields, setEditedFields] = useState<
+    Set<keyof TrackerMatchFormData>
+  >(new Set());
 
-  const [errors, setErrors] = useState<
-    Partial<Record<keyof MatchFormData, string>>
-  >({});
+  const [errors, setErrors] = useState<MatchFormErrors>({});
 
   // Validate a single field
   const validateField = (
-    field: keyof MatchFormData,
+    field: keyof TrackerMatchFormData,
     value: any
   ): string | undefined => {
     switch (field) {
@@ -84,6 +102,15 @@ export const MatchForm: React.FC<MatchFormProps> = ({
           return 'Location must be less than 100 characters';
         }
         return undefined;
+      case 'team1Name':
+      case 'team2Name':
+        if (!value || value.trim().length === 0) {
+          return 'Team name is required';
+        }
+        if (value.trim().length > 25) {
+          return 'Team name must be less than 25 characters';
+        }
+        return undefined;
       case 'player1Name':
       case 'player2Name':
       case 'player3Name':
@@ -93,15 +120,6 @@ export const MatchForm: React.FC<MatchFormProps> = ({
         }
         if (value.trim().length > 30) {
           return 'Player name must be less than 30 characters';
-        }
-        return undefined;
-      case 'team1Name':
-      case 'team2Name':
-        if (!value || value.trim().length === 0) {
-          return 'Team name is required';
-        }
-        if (value.trim().length > 25) {
-          return 'Team name must be less than 25 characters';
         }
         return undefined;
       case 'scoreLimit':
@@ -120,17 +138,16 @@ export const MatchForm: React.FC<MatchFormProps> = ({
   };
 
   // Update field value and clear error
-  const updateField = (field: keyof MatchFormData, value: any) => {
+  const updateField = (field: keyof TrackerMatchFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Mark field as edited when user changes it
     setEditedFields((prev) => new Set(prev).add(field));
-    if (errors[field]) {
+    if (errors[field as keyof MatchFormErrors]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
 
-  // Validate field when user finishes editing (like AuthForm)
-  const handleFieldBlur = (field: keyof MatchFormData) => {
+  // Validate field when user finishes editing
+  const handleFieldBlur = (field: keyof TrackerMatchFormData) => {
     const error = validateField(field, formData[field]);
     if (error) {
       setErrors((prev) => ({ ...prev, [field]: error }));
@@ -140,16 +157,18 @@ export const MatchForm: React.FC<MatchFormProps> = ({
   // Handle form submission
   const handleSubmit = async () => {
     // Validate all fields
-    const newErrors: Partial<Record<keyof MatchFormData, string>> = {};
+    const newErrors: MatchFormErrors = {};
     let hasErrors = false;
 
-    (Object.keys(formData) as Array<keyof MatchFormData>).forEach((field) => {
-      const error = validateField(field, formData[field]);
-      if (error) {
-        newErrors[field] = error;
-        hasErrors = true;
+    (Object.keys(formData) as Array<keyof TrackerMatchFormData>).forEach(
+      (field) => {
+        const error = validateField(field, formData[field]);
+        if (error) {
+          newErrors[field as keyof MatchFormErrors] = error;
+          hasErrors = true;
+        }
       }
-    });
+    );
 
     setErrors(newErrors);
 
@@ -184,9 +203,6 @@ export const MatchForm: React.FC<MatchFormProps> = ({
       color: colors.textSecondary,
       marginBottom: SPACING.xl,
       textAlign: 'center',
-    },
-    inputContainer: {
-      marginBottom: SPACING.md,
     },
     section: {
       marginBottom: SPACING.xl,
@@ -247,28 +263,6 @@ export const MatchForm: React.FC<MatchFormProps> = ({
       flex: 1,
       marginRight: SPACING.md,
     },
-    infoCard: {
-      backgroundColor: colors.surface,
-      padding: SPACING.md,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    infoText: {
-      fontSize: TYPOGRAPHY.sizes.md,
-      color: colors.text,
-      marginBottom: SPACING.xs,
-      lineHeight: 20,
-    },
-    infoTextBold: {
-      fontWeight: TYPOGRAPHY.weights.medium,
-    },
-    infoTextSmall: {
-      fontSize: TYPOGRAPHY.sizes.sm,
-      color: colors.textSecondary,
-      fontStyle: 'italic',
-      marginTop: SPACING.xs,
-    },
     errorContainer: {
       marginTop: SPACING.md,
       backgroundColor: colors.error,
@@ -297,52 +291,32 @@ export const MatchForm: React.FC<MatchFormProps> = ({
       fontSize: TYPOGRAPHY.sizes.body,
       fontFamily: TYPOGRAPHY.fontFamily.medium,
     },
-    errorText: {
-      fontSize: TYPOGRAPHY.sizes.sm,
-      color: colors.error,
-      marginTop: SPACING.xs,
-    },
-    playersGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: SPACING.sm,
-    },
-    playerInputContainer: {
-      flex: 1,
-      minWidth: '45%',
-    },
-    teamInputContainer: {
-      marginBottom: SPACING.md,
-    },
-    teamRow: {
-      flexDirection: 'row',
-      gap: SPACING.md,
-      marginBottom: SPACING.lg,
-    },
-    teamInputHalf: {
-      flex: 1,
-    },
-    defaultTextInput: {
-      color: colors.textSecondary,
-      fontStyle: 'italic',
-    },
-    editedTextInput: {
-      color: colors.text,
-      fontStyle: 'normal',
-    },
-    defaultText: {
-      color: colors.textSecondary,
-      fontStyle: 'italic',
-    },
-    editedText: {
-      color: colors.text,
-    },
     teamBox: {
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: BORDERS.md,
       backgroundColor: colors.surface,
       padding: SPACING.md,
+      marginBottom: SPACING.md,
+    },
+    teamHeader: {
+      alignItems: 'center',
+      marginBottom: SPACING.sm,
+    },
+    teamPlayersRow: {
+      flexDirection: 'row',
+      gap: SPACING.md,
+    },
+    playerInput: {
+      flex: 1,
+    },
+    matchInfoRow: {
+      flexDirection: 'row',
+      gap: SPACING.md,
+      marginBottom: SPACING.md,
+    },
+    matchInfoInput: {
+      flex: 1,
     },
   });
 
@@ -363,9 +337,9 @@ export const MatchForm: React.FC<MatchFormProps> = ({
             Set up your die game and invite friends to join
           </Text>
 
-          {/* Match Title and Location side by side */}
-          <View style={{ flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.md }}>
-            <View style={{ flex: 1 }}>
+          {/* Match Title and Location */}
+          <View style={styles.matchInfoRow}>
+            <View style={styles.matchInfoInput}>
               <Input
                 label="Match Title"
                 value={formData.title}
@@ -377,7 +351,7 @@ export const MatchForm: React.FC<MatchFormProps> = ({
                 maxLength={50}
               />
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={styles.matchInfoInput}>
               <Input
                 label="Location"
                 value={formData.location}
@@ -391,9 +365,23 @@ export const MatchForm: React.FC<MatchFormProps> = ({
             </View>
           </View>
 
-          {/* Team 1 Box */}
-          <View style={[{ marginBottom: SPACING.md }, styles.teamBox]}>
-            <View style={{ alignItems: 'center', marginBottom: SPACING.sm }}>
+          {/* Match Description */}
+          <Input
+            label="Description (Optional)"
+            value={formData.description}
+            onChangeText={(text: string) => updateField('description', text)}
+            onBlur={() => handleFieldBlur('description')}
+            error={errors.description}
+            placeholder="Describe your match..."
+            multiline
+            numberOfLines={2}
+            maxLength={500}
+            style={{ marginBottom: SPACING.md }}
+          />
+
+          {/* Team 1 */}
+          <View style={styles.teamBox}>
+            <View style={styles.teamHeader}>
               <Input
                 label="Team 1 Name"
                 value={formData.team1Name}
@@ -406,12 +394,14 @@ export const MatchForm: React.FC<MatchFormProps> = ({
                 containerStyle={{ width: '60%' }}
               />
             </View>
-            <View style={{ flexDirection: 'row', gap: SPACING.md }}>
-              <View style={{ flex: 1 }}>
+            <View style={styles.teamPlayersRow}>
+              <View style={styles.playerInput}>
                 <Input
                   label="Player 1"
                   value={formData.player1Name}
-                  onChangeText={(text: string) => updateField('player1Name', text)}
+                  onChangeText={(text: string) =>
+                    updateField('player1Name', text)
+                  }
                   onBlur={() => handleFieldBlur('player1Name')}
                   error={errors.player1Name}
                   placeholder="Player 1"
@@ -419,11 +409,13 @@ export const MatchForm: React.FC<MatchFormProps> = ({
                   maxLength={30}
                 />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={styles.playerInput}>
                 <Input
                   label="Player 2"
                   value={formData.player2Name}
-                  onChangeText={(text: string) => updateField('player2Name', text)}
+                  onChangeText={(text: string) =>
+                    updateField('player2Name', text)
+                  }
                   onBlur={() => handleFieldBlur('player2Name')}
                   error={errors.player2Name}
                   placeholder="Player 2"
@@ -434,9 +426,9 @@ export const MatchForm: React.FC<MatchFormProps> = ({
             </View>
           </View>
 
-          {/* Team 2 Box */}
-          <View style={[{ marginBottom: SPACING.md }, styles.teamBox]}>
-            <View style={{ alignItems: 'center', marginBottom: SPACING.sm }}>
+          {/* Team 2 */}
+          <View style={styles.teamBox}>
+            <View style={styles.teamHeader}>
               <Input
                 label="Team 2 Name"
                 value={formData.team2Name}
@@ -449,12 +441,14 @@ export const MatchForm: React.FC<MatchFormProps> = ({
                 containerStyle={{ width: '60%' }}
               />
             </View>
-            <View style={{ flexDirection: 'row', gap: SPACING.md }}>
-              <View style={{ flex: 1 }}>
+            <View style={styles.teamPlayersRow}>
+              <View style={styles.playerInput}>
                 <Input
                   label="Player 3"
                   value={formData.player3Name}
-                  onChangeText={(text: string) => updateField('player3Name', text)}
+                  onChangeText={(text: string) =>
+                    updateField('player3Name', text)
+                  }
                   onBlur={() => handleFieldBlur('player3Name')}
                   error={errors.player3Name}
                   placeholder="Player 3"
@@ -462,11 +456,13 @@ export const MatchForm: React.FC<MatchFormProps> = ({
                   maxLength={30}
                 />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={styles.playerInput}>
                 <Input
                   label="Player 4"
                   value={formData.player4Name}
-                  onChangeText={(text: string) => updateField('player4Name', text)}
+                  onChangeText={(text: string) =>
+                    updateField('player4Name', text)
+                  }
                   onBlur={() => handleFieldBlur('player4Name')}
                   error={errors.player4Name}
                   placeholder="Player 4"
@@ -511,7 +507,9 @@ export const MatchForm: React.FC<MatchFormProps> = ({
                 ))}
               </View>
               {errors.sinkPoints && (
-                <Text style={styles.errorText}>{errors.sinkPoints}</Text>
+                <Text style={{ color: colors.error, marginTop: SPACING.xs }}>
+                  {errors.sinkPoints}
+                </Text>
               )}
             </View>
 
@@ -542,7 +540,9 @@ export const MatchForm: React.FC<MatchFormProps> = ({
                 ))}
               </View>
               {errors.scoreLimit && (
-                <Text style={styles.errorText}>{errors.scoreLimit}</Text>
+                <Text style={{ color: colors.error, marginTop: SPACING.xs }}>
+                  {errors.scoreLimit}
+                </Text>
               )}
             </View>
 
@@ -600,7 +600,7 @@ export const MatchForm: React.FC<MatchFormProps> = ({
             </View>
           )}
 
-          {/* Buttons */}
+          {/* Submit Button */}
           <View style={styles.buttonContainer}>
             <Button onPress={handleSubmit} loading={loading}>
               <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>

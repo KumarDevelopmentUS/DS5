@@ -1,6 +1,6 @@
 // utils/calculations.ts
 
-import { PlayerMatchStats, Player } from '../types/models';
+import { PlayerMatchStats, Player, LivePlayerStats } from '../types/models';
 import { STATS_CONFIG, SCORING } from '../constants/game';
 
 // ============================================
@@ -137,6 +137,87 @@ export const calculateMVP = (
   const playersWithMVPScores = activePlayers.map((player) => ({
     player,
     mvpScore: calculateMVPScore(player.stats),
+  }));
+
+  // Find the player with the highest MVP score
+  const mvpCandidate = playersWithMVPScores.reduce((best, current) =>
+    current.mvpScore > best.mvpScore ? current : best
+  );
+
+  return mvpCandidate.player;
+};
+
+/**
+ * Calculates MVP score for a player based on their live match statistics
+ * @param stats - Player's live match statistics
+ * @returns MVP score (higher is better)
+ */
+export const calculateLiveMVPScore = (stats: LivePlayerStats): number => {
+  // Base offensive score
+  let mvpScore = stats.score * MVP_WEIGHTS.score;
+
+  // Add weighted contributions
+  mvpScore += stats.hits * MVP_WEIGHTS.hits;
+  mvpScore += stats.goal * MVP_WEIGHTS.goals;
+  mvpScore += stats.dink * MVP_WEIGHTS.dinks;
+  mvpScore += stats.sink * MVP_WEIGHTS.sinks;
+  mvpScore += stats.knicker * MVP_WEIGHTS.knickers;
+
+  // Streak bonuses
+  mvpScore += stats.hitStreak * MVP_WEIGHTS.longestStreak;
+  mvpScore += stats.onFireCount * MVP_WEIGHTS.onFireCount;
+
+  // Defensive contributions
+  mvpScore += stats.catches * MVP_WEIGHTS.catches;
+
+  // Catch rate bonus (only if above 50% and has attempts)
+  const catchAttempts = stats.catches + stats.drop + stats.miss + stats.twoHands + stats.body;
+  if (catchAttempts > 0) {
+    const catchRate = stats.catches / catchAttempts;
+    if (catchRate > 0.5) {
+      mvpScore += catchRate * MVP_WEIGHTS.catchRate;
+    }
+  }
+
+  // FIFA success bonus
+  if (stats.fifaAttempts > 0) {
+    const fifaRate = stats.fifaSuccess / stats.fifaAttempts;
+    mvpScore += fifaRate * MVP_WEIGHTS.fifaSuccess;
+  }
+
+  // Throw efficiency bonus
+  if (stats.throws > 0) {
+    const throwEfficiency = stats.hits / stats.throws;
+    mvpScore += throwEfficiency * MVP_WEIGHTS.throwEfficiency;
+  }
+
+  // Blunder penalty
+  mvpScore += stats.blunders * MVP_WEIGHTS.blunderPenalty;
+
+  return Math.max(0, Number(mvpScore.toFixed(2))); // Ensure non-negative
+};
+
+/**
+ * Determines the MVP from a list of players and their live match stats
+ * @param players - Array of players with their live match statistics
+ * @returns The player with the highest MVP score, or null if no players
+ */
+export const calculateLiveMVP = (
+  players: { userId: string; stats: LivePlayerStats }[]
+): { userId: string; stats: LivePlayerStats } | null => {
+  if (!players || players.length === 0) return null;
+
+  // Filter out players with insufficient activity
+  const activePlayers = players.filter(
+    (player) => player.stats && player.stats.throws >= 3 // Minimum 3 throws to be considered
+  );
+
+  if (activePlayers.length === 0) return null;
+
+  // Calculate MVP scores for all active players
+  const playersWithMVPScores = activePlayers.map((player) => ({
+    player,
+    mvpScore: calculateLiveMVPScore(player.stats),
   }));
 
   // Find the player with the highest MVP score
@@ -296,12 +377,36 @@ export const calculateEfficiency = (
 };
 
 /**
- * Determines if a player is on a hot streak (3+ consecutive scoring throws)
- * @param currentStreak - Current consecutive hit streak
+ * Determines if a player is on a hot streak (3+ consecutive good throws)
+ * Based on rulebook: Only good throws (Hit, Knicker, Goal, Dink, Sink) count toward streak
+ * Bad throws (Short, Long, Side, Height) reset the streak
+ * @param currentStreak - Current consecutive good throw streak
  * @returns Whether player is "on fire"
  */
 export const isOnFire = (currentStreak: number): boolean => {
   return currentStreak >= 3; // Based on ON_FIRE_STREAK.ACTIVATION_THRESHOLD from game constants
+};
+
+/**
+ * Determines if a throw type counts toward the "on fire" streak
+ * @param throwType - The type of throw made
+ * @returns Whether this throw type builds the streak
+ */
+export const isStreakBuildingThrow = (throwType: string): boolean => {
+  // Only these throws count toward the streak (from rulebook)
+  const streakBuildingThrows = ['hit', 'knicker', 'goal', 'dink', 'sink'];
+  return streakBuildingThrows.includes(throwType.toLowerCase());
+};
+
+/**
+ * Determines if a throw type resets the "on fire" streak
+ * @param throwType - The type of throw made
+ * @returns Whether this throw type resets the streak
+ */
+export const isStreakResettingThrow = (throwType: string): boolean => {
+  // These throws reset the streak (from rulebook)
+  const streakResettingThrows = ['short', 'long', 'side', 'height', 'line'];
+  return streakResettingThrows.includes(throwType.toLowerCase());
 };
 
 /**

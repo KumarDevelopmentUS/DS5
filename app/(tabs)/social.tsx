@@ -77,7 +77,7 @@ type SocialTab = 'communities' | 'friends' | 'trending';
  * Social Screen - Main social hub with sub-tabs
  */
 const SocialScreen = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, isAuthenticated, isGuest } = useAuth();
   const { colors } = useTheme();
   const router = useRouter();
 
@@ -166,6 +166,15 @@ const SocialScreen = () => {
       setRefreshing(false);
     }
   }, [refetchCommunities, refreshFriends]);
+
+  // Handle authentication actions
+  const handleSignIn = () => {
+    router.push('/(auth)/login');
+  };
+
+  const handleSignUp = () => {
+    router.push('/(auth)/signup');
+  };
 
   // Filter data based on search
   const filteredData = useMemo(() => {
@@ -655,13 +664,82 @@ const SocialScreen = () => {
 
   // Main content renderer
   const renderContent = () => {
+    if (!isAuthenticated) {
+      return (
+        <View style={styles.guestContent}>
+          <View style={styles.guestIconContainer}>
+            <Ionicons name="people" size={80} color={colors.primary} />
+          </View>
+          <Text style={[styles.guestTitle, { color: colors.text }]}>
+            Welcome to Social
+          </Text>
+          <Text style={[styles.guestMessage, { color: colors.textSecondary }]}>
+            Connect with your peers and join communities.
+          </Text>
+          <View style={styles.guestButtons}>
+            <Button
+              variant="primary"
+              size="large"
+              onPress={handleSignIn}
+              icon={<Ionicons name="log-in" size={20} color="#FFFFFF" />}
+              style={styles.guestButton}
+            >
+              Sign In
+            </Button>
+            <Button
+              variant="outline"
+              size="large"
+              onPress={handleSignUp}
+              icon={<Ionicons name="person-add" size={20} color="#000000" />}
+              style={styles.guestButton}
+            >
+              Sign Up
+            </Button>
+          </View>
+        </View>
+      );
+    }
+
     switch (activeTab) {
       case 'communities':
-        return renderCommunitiesContent();
+        return (
+          <ScrollView
+            style={styles.content}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            }
+          >
+            {renderSearchBar()}
+            {renderCommunitiesContent()}
+          </ScrollView>
+        );
+
       case 'friends':
-        return renderFriendsContent();
+        return (
+          <ScrollView
+            style={styles.content}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            }
+          >
+            {renderSearchBar()}
+            {renderFriendsContent()}
+          </ScrollView>
+        );
+
       case 'trending':
-        return renderTrendingContent();
+        return (
+          <ScrollView
+            style={styles.content}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            }
+          >
+            {renderSearchBar()}
+            {renderTrendingContent()}
+          </ScrollView>
+        );
+
       default:
         return null;
     }
@@ -670,13 +748,12 @@ const SocialScreen = () => {
   return (
     <SimpleScreen
       title="Social"
-      subtitle={profile?.username}
+      subtitle={isAuthenticated ? profile?.username : undefined}
       style={{ backgroundColor: colors.background }}
       showHeader={true}
       contentStyle={{ padding: 0 }} // Remove default padding since we handle it in components
     >
-      {renderTabButtons()}
-      {renderSearchBar()}
+      {isAuthenticated && renderTabButtons()}
       {renderContent()}
     </SimpleScreen>
   );
@@ -809,6 +886,39 @@ const styles = StyleSheet.create({
   },
   friendCard: {
     marginBottom: SPACING.xs,
+  },
+
+  // Guest content
+  guestContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xl,
+  },
+  guestIconContainer: {
+    marginBottom: SPACING.lg,
+  },
+  guestTitle: {
+    fontSize: TYPOGRAPHY.sizes.large,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    marginBottom: SPACING.sm,
+  },
+  guestMessage: {
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+  },
+  guestButtons: {
+    width: '100%',
+    gap: SPACING.sm,
+  },
+  guestButton: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
   },
 });
 

@@ -6,13 +6,12 @@ import { useTheme } from '../hooks/ui/useTheme';
 /**
  * App Entry Point
  *
- * This component acts as the initial router for the application. It checks the
- * user's authentication status and declaratively redirects them to the appropriate
- * screen. This approach is safer than programmatic navigation on initial load,
- * especially for web, as it avoids race conditions with the router setup.
+ * This component acts as the initial router for the application. It redirects
+ * all users to the home page, where they can access the app as either
+ * authenticated users or guests.
  */
 export default function Index() {
-  const { isAuthenticated, loading } = useAuth();
+  const { loading } = useAuth();
   const { colors } = useTheme();
 
   if (loading) {
@@ -24,13 +23,8 @@ export default function Index() {
     );
   }
 
-  if (isAuthenticated) {
-    // If the user is authenticated, redirect them to the main app (home screen).
-    return <Redirect href="/(tabs)/home" />;
-  } else {
-    // If the user is not authenticated, redirect them to the login screen.
-    return <Redirect href="/(auth)/login" />;
-  }
+  // Always redirect to home page - users can be guests or authenticated
+  return <Redirect href="/(tabs)/home" />;
 }
 
 const styles = StyleSheet.create({

@@ -1,4 +1,4 @@
-// app/match/create.tsx - DIRECT NAVIGATION VERSION
+// app/match/create.tsx - UPDATED FOR TRACKER
 import React, { useEffect, useCallback } from 'react';
 import {
   Alert,
@@ -11,61 +11,22 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MatchForm } from '../../components/forms/MatchForm';
-import { useMatchCreation } from '../../hooks/match/useMatchCreation';
 import { SimpleScreen } from '../../components/Layout/Screen/SimpleScreen';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../hooks/auth/useAuth';
+import { EnhancedMatchService } from '../../services/match/enhancedMatchService';
 import { SCREEN_TITLES, CONFIRMATION_MESSAGES } from '../../constants/messages';
-import type { MatchFormData } from '../../components/forms/MatchForm/MatchForm.types';
+import { TrackerMatchFormData } from '../../types/tracker';
+import { createDefaultMatchSettings } from '../../utils/playerDefaults';
 
 export default function CreateMatchScreen() {
-  const matchCreation = useMatchCreation();
   const { colors } = useTheme();
-
-  console.log('CreateMatchScreen rendering, matchCreation state:', {
-    isCreating: matchCreation?.isCreating,
-    hasCreatedMatch: !!matchCreation?.createdMatch,
-    hasErrors: !!matchCreation?.errors,
-    errors: matchCreation?.errors,
-    matchId: matchCreation?.createdMatch?.id,
-    roomCode: matchCreation?.roomCode,
-  });
-
-  // Safeguard against undefined matchCreation
-  if (!matchCreation) {
-    return (
-      <SimpleScreen showHeader={false}>
-        <View style={{ padding: 20 }}>
-          <Text>Loading match creation...</Text>
-        </View>
-      </SimpleScreen>
-    );
-  }
-
-  // Auto-navigate to match when created
-  useEffect(() => {
-    if (matchCreation.createdMatch?.id) {
-      console.log(
-        'Match created, auto-navigating to match:',
-        matchCreation.createdMatch.id
-      );
-
-      // Small delay to ensure state is updated
-      const timer = setTimeout(() => {
-        const matchId = matchCreation.createdMatch!.id;
-        console.log('Navigating to match:', matchId);
-
-        // Clear the form state
-        if (matchCreation.resetForm) {
-          matchCreation.resetForm();
-        }
-
-        // Navigate directly to the match
-        router.replace(`/match/${matchId}` as any);
-      }, 100);
-
-      return () => clearTimeout(timer);
-    }
-  }, [matchCreation.createdMatch?.id, matchCreation.resetForm]);
+  const { user, isAuthenticated } = useAuth();
+  const [isCreating, setIsCreating] = React.useState(false);
+  const [formData, setFormData] = React.useState<TrackerMatchFormData | null>(
+    null
+  );
+  const [error, setError] = React.useState<string | null>(null);
 
   /**
    * Handle Android back button
@@ -81,21 +42,21 @@ export default function CreateMatchScreen() {
       backAction
     );
     return () => backHandler.remove();
-  }, [matchCreation.formData]);
+  }, [formData]);
 
   /**
    * Handle back navigation with unsaved changes warning
    */
   const handleBackPress = useCallback(() => {
     const hasUnsavedChanges =
-      (matchCreation.formData as MatchFormData)?.title?.trim()?.length > 0 ||
-      (matchCreation.formData as MatchFormData)?.location?.trim()?.length > 0 ||
-      (matchCreation.formData as MatchFormData)?.team1Name?.trim()?.length > 0 ||
-      (matchCreation.formData as MatchFormData)?.team2Name?.trim()?.length > 0 ||
-      (matchCreation.formData as MatchFormData)?.player1Name?.trim()?.length > 0 ||
-      (matchCreation.formData as MatchFormData)?.player2Name?.trim()?.length > 0 ||
-      (matchCreation.formData as MatchFormData)?.player3Name?.trim()?.length > 0 ||
-      (matchCreation.formData as MatchFormData)?.player4Name?.trim()?.length > 0;
+      (formData?.title?.trim() || '').length > 0 ||
+      (formData?.location?.trim() || '').length > 0 ||
+      (formData?.team1Name?.trim() || '').length > 0 ||
+      (formData?.team2Name?.trim() || '').length > 0 ||
+      (formData?.player1Name?.trim() || '').length > 0 ||
+      (formData?.player2Name?.trim() || '').length > 0 ||
+      (formData?.player3Name?.trim() || '').length > 0 ||
+      (formData?.player4Name?.trim() || '').length > 0;
 
     if (hasUnsavedChanges) {
       Alert.alert('Discard Changes?', CONFIRMATION_MESSAGES.DISCARD_CHANGES, [
@@ -107,7 +68,7 @@ export default function CreateMatchScreen() {
           text: 'Discard',
           style: 'destructive',
           onPress: () => {
-            matchCreation.resetForm?.();
+            setFormData(null);
             router.back();
           },
         },
@@ -115,52 +76,85 @@ export default function CreateMatchScreen() {
     } else {
       router.back();
     }
-  }, [matchCreation.formData, matchCreation.resetForm]);
+  }, [formData]);
 
   /**
    * Handle successful match creation
    */
   const handleCreateMatch = useCallback(
-    async (formData: any) => {
+    async (data: TrackerMatchFormData) => {
+      if (!isAuthenticated || !user) {
+        setError('You must be logged in to create a match');
+        return;
+      }
+
+      setIsCreating(true);
+      setError(null);
+      setFormData(data);
+
       try {
-        console.log('Creating match with form data:', formData);
+        console.log('Creating match with enhanced data:', data);
 
-        // Update the hook's form data FIRST, then create
-        if (matchCreation.updateFormData) {
-          matchCreation.updateFormData(formData);
-        }
+        // Prepare enhanced match data for the service
+        const createMatchData = {
+          title: data.title.trim(),
+          description: data.description?.trim() || undefined,
+          gameType: 'die_stats',
+          location: data.location?.trim() || undefined,
+          scoreLimit: data.scoreLimit,
+          winByTwo: data.winByTwo,
+          sinkPoints: data.sinkPoints,
+          isPublic: data.isPublic,
+          // Enhanced settings with team and player names
+          settings: createDefaultMatchSettings({
+            scoreLimit: data.scoreLimit,
+            winByTwo: data.winByTwo,
+            sinkPoints: data.sinkPoints,
+            teamNames: {
+              team1: data.team1Name.trim(),
+              team2: data.team2Name.trim(),
+            },
+            playerNames: {
+              player1: data.player1Name.trim(),
+              player2: data.player2Name.trim(),
+              player3: data.player3Name.trim(),
+              player4: data.player4Name.trim(),
+            },
+          }),
+        };
 
-        // Wait a tick for state to update before calling createMatch
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        console.log('Prepared match data:', createMatchData);
 
-        const result = await matchCreation.createMatch();
+        // Create the match using the service
+        const result = await EnhancedMatchService.createMatch(
+          createMatchData,
+          user.id
+        );
 
-        if (result?.success && result?.data) {
+        if (result.success && result.data) {
           console.log('Match created successfully:', {
             id: result.data.id,
             roomCode: result.data.roomCode,
             title: result.data.title,
+            settings: result.data.settings,
           });
-          // Navigation will happen automatically via useEffect
+
+          // Navigate to the new tracker interface
+          router.replace(`/match/${result.data.id}` as any);
         } else {
-          console.error('Match creation failed:', result?.error);
-          Alert.alert(
-            'Match Creation Failed',
-            result?.error?.message ||
-              'Unable to create match. Please try again.',
-            [{ text: 'OK' }]
+          console.error('Match creation failed:', result.error);
+          setError(
+            result.error?.message || 'Failed to create match. Please try again.'
           );
         }
       } catch (error) {
         console.error('Error in handleCreateMatch:', error);
-        Alert.alert(
-          'Error',
-          'An unexpected error occurred. Please try again.',
-          [{ text: 'OK' }]
-        );
+        setError('An unexpected error occurred. Please try again.');
+      } finally {
+        setIsCreating(false);
       }
     },
-    [matchCreation]
+    [isAuthenticated, user]
   );
 
   return (
@@ -180,12 +174,8 @@ export default function CreateMatchScreen() {
 
       <MatchForm
         onSubmit={handleCreateMatch}
-        loading={matchCreation.isCreating || false}
-        serverError={
-          matchCreation.errors?.general
-            ? String(matchCreation.errors.general)
-            : undefined
-        }
+        loading={isCreating}
+        serverError={error}
       />
     </SimpleScreen>
   );

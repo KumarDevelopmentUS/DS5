@@ -24,6 +24,7 @@ import {
   SearchFilters,
   TeamScore,
   MatchFormData,
+  LiveMatchData,
 } from '../../types/models';
 import {
   isOnFire,
@@ -42,6 +43,7 @@ import { cacheDataWithTTL, getCachedDataWithTTL } from '../../utils/storage';
 import { sanitizeInput, validateMatchTitle } from '../../utils/validation';
 import type { TableInsert, TableRow } from '../database/databaseService';
 import { supabase } from '../database/databaseService';
+import { initializeLiveMatchData, updateThrowingPlayerStats, updateDefensivePlayerStats, updateFifaStats } from '../../utils/playerDefaults';
 
 /**
  * Match Service
@@ -69,6 +71,7 @@ export interface CreateMatchData {
   sinkPoints?: 3 | 5;
   isPublic?: boolean;
   teamNames?: { team1: string; team2: string };
+  playerNames?: { player1: string; player2: string; player3: string; player4: string };
 }
 
 export interface SubmitPlayData {
@@ -168,6 +171,7 @@ export class MatchService {
           winByTwo: data.winByTwo ?? MATCH_SETTINGS.DEFAULT_WIN_BY_TWO,
           sinkPoints: data.sinkPoints || MATCH_SETTINGS.DEFAULT_SINK_POINTS,
           teamNames: data.teamNames || { team1: 'Team 1', team2: 'Team 2' },
+          playerNames: data.playerNames || { player1: 'Player 1', player2: 'Player 2', player3: 'Player 3', player4: 'Player 4' },
           trackAdvancedStats: MATCH_SETTINGS.TRACK_ADVANCED_STATS,
           enableSpectators: MATCH_SETTINGS.ENABLE_SPECTATORS,
         },
@@ -224,21 +228,21 @@ export class MatchService {
   }
 
   /**
-   * Submits a play/event to a match
+   * Submits a play/event to a match using the new live match data structure
    *
    * @param matchId - ID of the match
    * @param playData - Play submission data
-   * @returns Submitted event or error
+   * @returns Success status
    */
   static async submitPlay(
     matchId: string,
     playData: SubmitPlayData
-  ): Promise<MatchServiceResponse<MatchEvent>> {
+  ): Promise<MatchServiceResponse<boolean>> {
     try {
       // Verify match exists and is active
       const { data: match, error: matchError } = await supabase
         .from('matches')
-        .select('status, settings')
+        .select('*')
         .eq('id', matchId)
         .single();
 
@@ -258,6 +262,23 @@ export class MatchService {
         };
       }
 
+      // Get current live match data or initialize it
+      let liveMatchData: LiveMatchData = match.live_match_data as LiveMatchData;
+      
+      if (!liveMatchData) {
+        // Initialize live match data if it doesn't exist
+        const { data: participants } = await supabase
+          .from('match_participants')
+          .select('user_id, team, role')
+          .eq('match_id', matchId);
+
+        if (!participants) {
+          throw new Error('No participants found');
+        }
+
+        liveMatchData = initializeLiveMatchData(match, participants);
+      }
+
       // Calculate points based on play type
       const points = this.calculatePoints(
         playData.eventType,
@@ -265,63 +286,73 @@ export class MatchService {
         match.settings as any
       );
 
-      // Build event data
-      const eventData: EventData = {
-        throwType: playData.eventType,
-        defenderIds: playData.defenderIds,
-        defenseType: playData.defenseType,
-        points,
-        fifa: playData.fifa,
-        redemption: playData.redemption
-          ? {
-              success: false, // Will be determined by game logic
-              targetPlayerId: playData.redemption.targetPlayerId,
-            }
-          : undefined,
-      };
-
-      // Check for on-fire status
-      const streakInfo = await this.getPlayerStreak(matchId, playData.playerId);
-      if (isOnFire(streakInfo.currentStreak + 1)) {
-        eventData.onFire = true;
-        eventData.hitStreak = streakInfo.currentStreak + 1;
+      // Get player position from playerMap
+      const playerPosition = liveMatchData.playerMap[playData.playerId];
+      if (!playerPosition) {
+        throw new Error('Player not found in match');
       }
 
-      // Insert event
-      const eventInsert: TableInsert<'match_events'> = {
-        match_id: matchId,
-        player_id: playData.playerId,
-        event_type: playData.eventType,
+      // Update throwing player statistics
+      liveMatchData = updateThrowingPlayerStats(
+        liveMatchData,
+        playerPosition,
+        playData.eventType,
+        points
+      );
+
+      // Update defensive player statistics if there was defense
+      if (playData.defenderIds && playData.defenderIds.length > 0 && playData.defenseType) {
+        for (const defenderId of playData.defenderIds) {
+          const defenderPosition = liveMatchData.playerMap[defenderId];
+          if (defenderPosition) {
+            liveMatchData = updateDefensivePlayerStats(
+              liveMatchData,
+              defenderPosition,
+              playData.defenseType!
+            );
+          }
+        }
+      }
+
+      // Update FIFA statistics if FIFA action was performed
+      if (playData.fifa) {
+        const isSuccess = playData.fifa.kickType === 'good_kick';
+        liveMatchData = updateFifaStats(
+          liveMatchData,
+          playerPosition,
+          playData.fifa.kickType,
+          isSuccess
+        );
+      }
+
+      // Add play to recent plays (keep only last 4)
+      const newPlay = {
+        playerId: playData.playerId,
+        eventType: playData.eventType,
         team: playData.team,
-        event_data: eventData as any,
+        points,
+        timestamp: new Date().toISOString(),
+        fifa: playData.fifa,
+        redemption: playData.redemption,
       };
+      
+      liveMatchData.recentPlays = [newPlay, ...liveMatchData.recentPlays.slice(0, 3)];
 
-      const { data: event, error: eventError } = await supabase
-        .from('match_events')
-        .insert([eventInsert])
-        .select()
-        .single();
+      // Update the match with new live match data
+      const { error: updateError } = await supabase
+        .from('matches')
+        .update({ live_match_data: liveMatchData })
+        .eq('id', matchId);
 
-      if (eventError || !event) {
-        throw eventError || new Error('Failed to submit play');
+      if (updateError) {
+        throw updateError;
       }
-
-      // Transform to MatchEvent type
-      const transformedEvent: MatchEvent = {
-        id: event.id,
-        matchId: event.match_id!,
-        playerId: event.player_id!,
-        eventType: event.event_type as PlayType,
-        eventData: event.event_data as EventData,
-        team: event.team || undefined,
-        timestamp: new Date(event.created_at!),
-      };
 
       // Clear match cache after play submission
       await this.clearMatchCache(matchId);
 
       return {
-        data: transformedEvent,
+        data: true,
         error: null,
         success: true,
         timestamp: new Date().toISOString(),
@@ -790,133 +821,58 @@ export class MatchService {
     playerId: string
   ): Promise<MatchServiceResponse<PlayerMatchStats>> {
     try {
-      const { data: events, error } = await supabase
-        .from('match_events')
-        .select('*')
-        .eq('match_id', matchId)
-        .eq('player_id', playerId);
+      const { data: match, error: matchError } = await supabase
+        .from('matches')
+        .select('live_match_data')
+        .eq('id', matchId)
+        .single();
 
-      if (error) {
-        throw error;
+      if (matchError || !match) {
+        throw matchError || new Error('Match not found');
       }
 
-      // Initialize stats
-      const stats: PlayerMatchStats = {
-        throws: 0,
-        hits: 0,
-        catches: 0,
-        catchAttempts: 0,
-        score: 0,
-        sinks: 0,
-        goals: 0,
-        dinks: 0,
-        knickers: 0,
-        currentStreak: 0,
-        longestStreak: 0,
-        onFireCount: 0,
-        blunders: 0,
-        fifaAttempts: 0,
-        fifaSuccess: 0,
-      };
+      const liveMatchData = match.live_match_data as LiveMatchData;
 
-      // Process events
-      let currentStreak = 0;
-      events?.forEach((event: any) => {
-        const eventData = event.event_data as EventData;
+      if (!liveMatchData) {
+        return {
+          data: null,
+          error: {
+            code: ErrorCodes.NOT_FOUND,
+            message: 'Live match data not found for this match',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
 
-        // Count throws
-        if (
-          [
-            'table',
-            'line',
-            'hit',
-            'knicker',
-            'goal',
-            'dink',
-            'sink',
-            'short',
-            'long',
-            'side',
-            'height',
-          ].includes(event.event_type)
-        ) {
-          stats.throws++;
-        }
+             // Find player position from playerMap
+       const playerPosition = liveMatchData.playerMap[playerId];
+       if (!playerPosition) {
+         return {
+           data: null,
+           error: {
+             code: ErrorCodes.NOT_FOUND,
+             message: 'Player not found in this match',
+           },
+           success: false,
+           timestamp: new Date().toISOString(),
+         };
+       }
 
-        // Count hits
-        if (
-          ['hit', 'knicker', 'goal', 'dink', 'sink'].includes(event.event_type)
-        ) {
-          stats.hits++;
-          currentStreak++;
-          stats.longestStreak = Math.max(stats.longestStreak, currentStreak);
-        } else if (
-          ['short', 'long', 'side', 'height'].includes(event.event_type)
-        ) {
-          currentStreak = 0;
-        }
-
-        // Count specific plays
-        switch (event.event_type) {
-          case PlayType.SINK:
-            stats.sinks++;
-            break;
-          case PlayType.GOAL:
-            stats.goals++;
-            break;
-          case PlayType.DINK:
-            stats.dinks++;
-            break;
-          case PlayType.KNICKER:
-            stats.knickers++;
-            break;
-          case PlayType.CATCH:
-          case PlayType.CATCH_PLUS_AURA:
-            stats.catches++;
-            stats.catchAttempts++;
-            break;
-          case PlayType.DROP:
-          case PlayType.MISS:
-          case PlayType.TWO_HANDS:
-          case PlayType.BODY:
-            stats.catchAttempts++;
-            stats.blunders++;
-            break;
-        }
-
-        // Count score
-        if (eventData.points) {
-          stats.score += eventData.points;
-        }
-
-        // Count on fire
-        if (eventData.onFire) {
-          stats.onFireCount++;
-        }
-
-        // Count FIFA
-        if (eventData.fifa) {
-          stats.fifaAttempts++;
-          if (event.event_type === PlayType.FIFA_SAVE) {
-            stats.fifaSuccess++;
-          }
-        }
-      });
-
-      stats.currentStreak = currentStreak;
+       const playerStats = liveMatchData.livePlayerStats[playerPosition];
 
       // Apply calculation functions from utils/calculations.ts
       const performanceMetrics = {
-        hitRate: calculateHitRate(stats.hits, stats.throws),
-        catchRate: calculateCatchRate(stats.catches, stats.catchAttempts),
-        efficiency: calculateEfficiency(stats.score, stats.throws),
-        mvpScore: calculateMVPScore(stats),
-        performanceRating: calculatePerformanceRating(stats),
+        hitRate: calculateHitRate(playerStats.hits, playerStats.throws),
+        catchRate: calculateCatchRate(playerStats.catches, playerStats.catchAttempts),
+        efficiency: calculateEfficiency(playerStats.score, playerStats.throws),
+        mvpScore: calculateMVPScore(playerStats),
+        performanceRating: calculatePerformanceRating(playerStats),
       };
 
       return {
         data: {
-          ...stats,
+          ...playerStats,
           ...performanceMetrics,
         },
         error: null,
@@ -1455,26 +1411,37 @@ export class MatchService {
   private static async calculateMatchScore(
     matchId: string
   ): Promise<TeamScore> {
-    const { data: events } = await supabase
-      .from('match_events')
-      .select('team, event_data')
-      .eq('match_id', matchId);
+    const { data: match } = await supabase
+      .from('matches')
+      .select('live_match_data')
+      .eq('id', matchId)
+      .single();
 
-    const score: TeamScore = {
-      team1: 0,
-      team2: 0,
-    };
+    if (!match) {
+      return { team1: 0, team2: 0 };
+    }
 
-    if (!events) return score;
+    const liveMatchData = match.live_match_data as LiveMatchData;
 
-    events.forEach((event: any) => {
-      const eventData = event.event_data as EventData;
-      if (eventData.points && event.team) {
-        score[event.team] = (score[event.team] || 0) + eventData.points;
-      }
-    });
+         // Calculate team scores from player scores
+     let team1Score = 0;
+     let team2Score = 0;
 
-    return score;
+     // Sum up scores for each team
+     Object.values(liveMatchData.livePlayerStats).forEach((playerStats, index) => {
+       const position = (index + 1).toString();
+       const team = parseInt(position) <= 2 ? 'team1' : 'team2';
+       if (team === 'team1') {
+         team1Score += playerStats.score;
+       } else {
+         team2Score += playerStats.score;
+       }
+     });
+
+     return {
+       team1: team1Score,
+       team2: team2Score,
+     };
   }
 
   /**
@@ -1514,33 +1481,32 @@ export class MatchService {
     matchId: string,
     playerId: string
   ): Promise<{ currentStreak: number; longestStreak: number }> {
-    const { data: events } = await supabase
-      .from('match_events')
-      .select('event_type, event_data')
-      .eq('match_id', matchId)
-      .eq('player_id', playerId)
-      .order('created_at', { ascending: false })
-      .limit(10);
+    const { data: match } = await supabase
+      .from('matches')
+      .select('live_match_data')
+      .eq('id', matchId)
+      .single();
 
-    if (!events || events.length === 0) {
+    if (!match) {
       return { currentStreak: 0, longestStreak: 0 };
     }
 
-    let currentStreak = 0;
-    let longestStreak = 0;
-
-    // Count consecutive scoring plays
-    for (const event of events) {
-      const eventData = event.event_data as EventData;
-      if (eventData.points && eventData.points > 0) {
-        currentStreak++;
-        longestStreak = Math.max(longestStreak, currentStreak);
-      } else {
-        break;
-      }
+    const liveMatchData = match.live_match_data as LiveMatchData;
+    const playerPosition = liveMatchData.playerMap[playerId];
+    
+    if (!playerPosition) {
+      return { currentStreak: 0, longestStreak: 0 };
     }
 
-    return { currentStreak, longestStreak };
+    const playerStats = liveMatchData.livePlayerStats[playerPosition];
+    if (!playerStats) {
+      return { currentStreak: 0, longestStreak: 0 };
+    }
+
+    return {
+      currentStreak: playerStats.hitStreak,
+      longestStreak: playerStats.onFireCount > 0 ? 3 : playerStats.hitStreak,
+    };
   }
 
   /**
@@ -1650,6 +1616,54 @@ export class MatchService {
       timestamp: new Date().toISOString(),
     };
   }
+
+  /**
+   * Gets live match data for a match
+   *
+   * @param matchId - ID of the match
+   * @returns Live match data or null
+   */
+  static async getLiveMatchData(
+    matchId: string
+  ): Promise<MatchServiceResponse<LiveMatchData | null>> {
+    try {
+      const { data: match, error: matchError } = await supabase
+        .from('matches')
+        .select('live_match_data')
+        .eq('id', matchId)
+        .single();
+
+      if (matchError || !match) {
+        return {
+          data: null,
+          error: {
+            code: ErrorCodes.NOT_FOUND,
+            message: 'Match not found',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      return {
+        data: match.live_match_data as LiveMatchData || null,
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'getLiveMatchData',
+        matchId,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
 }
 
 // Export singleton methods for convenience
@@ -1672,6 +1686,7 @@ export const {
   changePlayerTeam,
   getActiveMatches,
   getMatchInvites,
+  getLiveMatchData,
 } = MatchService;
 
 // Default export

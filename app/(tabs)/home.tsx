@@ -22,12 +22,12 @@ import { MATCH_ROUTES } from '../../constants/routes';
 /**
  * Home Screen - Main Dashboard
  *
- * The main landing screen for authenticated users. It acts as a dashboard,
+ * The main landing screen for all users (authenticated and guests). It acts as a dashboard,
  * presenting a unified hub of competitive activities, including a social feed,
- * active matches, and quick stats.
+ * active matches, and quick stats. Guests can access most features but are prompted to sign in.
  */
 const HomeScreen = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, isAuthenticated, isGuest } = useAuth();
   const { colors } = useTheme();
   const router = useRouter();
 
@@ -101,6 +101,7 @@ const HomeScreen = () => {
   }, []);
 
   const handleCreateAction = () => {
+    // Guests can create matches (with warning shown in CreationModal)
     setShowCreationModal(true);
   };
 
@@ -121,42 +122,90 @@ const HomeScreen = () => {
     router.push('/match/history' as any);
   };
 
+  const handleSignIn = () => {
+    router.push('/(auth)/login');
+  };
+
+  const handleSignUp = () => {
+    router.push('/(auth)/signup');
+  };
+
   // Render welcome header
   const renderHeader = () => (
     <View style={styles.header}>
       <View style={styles.welcomeSection}>
         <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
-          Welcome back,
+          {isGuest ? 'Welcome to' : 'Welcome back,'}
         </Text>
         <Text style={[styles.userNameText, { color: colors.text }]}>
-          {profile?.nickname ||
-            profile?.username ||
-            user?.email?.split('@')[0] ||
-            'Player'}
-          !
+          {isGuest 
+            ? 'Die Stats!'
+            : `${profile?.nickname || profile?.username || user?.email?.split('@')[0] || 'Player'}!`
+          }
         </Text>
+        {isGuest && (
+          <Text style={[styles.guestText, { color: colors.textSecondary }]}>
+            You're playing as a guest. Sign in to save your progress!
+          </Text>
+        )}
       </View>
 
       <View style={styles.headerActions}>
-        <Button
-          variant="primary"
-          size="medium"
-          onPress={handleCreateAction}
-          style={styles.createButton}
-          testID="home-create-button"
-        >
-          {MESSAGES.GENERAL.CREATE}
-        </Button>
+        {isGuest ? (
+          // Guest authentication buttons and create match button
+          <View style={styles.authButtons}>
+            <Button
+              variant="primary"
+              size="large"
+              onPress={handleSignIn}
+              style={styles.authButton}
+              testID="home-signin-button"
+            >
+              Sign In
+            </Button>
+            <Button
+              variant="outline"
+              size="large"
+              onPress={handleSignUp}
+              style={styles.authButton}
+              testID="home-signup-button"
+            >
+              Sign Up
+            </Button>
+            <Button
+              variant="outline"
+              size="medium"
+              onPress={handleCreateAction}
+              style={styles.guestCreateButton}
+              testID="home-guest-create-button"
+            >
+              Create Match
+            </Button>
+          </View>
+        ) : (
+          // Authenticated user action buttons
+          <>
+            <Button
+              variant="primary"
+              size="medium"
+              onPress={handleCreateAction}
+              style={styles.createButton}
+              testID="home-create-button"
+            >
+              {MESSAGES.GENERAL.CREATE}
+            </Button>
 
-        <Button
-          variant="outline"
-          size="medium"
-          onPress={handleJoinMatch}
-          style={styles.joinButton}
-          testID="home-join-button"
-        >
-          {MESSAGES.BUTTON_LABELS.JOIN_MATCH}
-        </Button>
+            <Button
+              variant="outline"
+              size="medium"
+              onPress={handleJoinMatch}
+              style={styles.joinButton}
+              testID="home-join-button"
+            >
+              {MESSAGES.BUTTON_LABELS.JOIN_MATCH}
+            </Button>
+          </>
+        )}
       </View>
     </View>
   );
@@ -393,9 +442,24 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     marginTop: SPACING.xs,
   },
+  guestText: {
+    fontSize: TYPOGRAPHY.sizes.caption1,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    marginTop: SPACING.xs,
+  },
   headerActions: {
     flexDirection: 'row',
     gap: SPACING.sm,
+  },
+  authButtons: {
+    flexDirection: 'column',
+    gap: SPACING.md,
+  },
+  authButton: {
+    flex: 1,
+  },
+  guestCreateButton: {
+    flex: 1,
   },
   createButton: {
     flex: 1,

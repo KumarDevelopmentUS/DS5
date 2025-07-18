@@ -25,7 +25,8 @@ import {
  *
  * Features:
  * - Real-time auth state monitoring
- * - Automatic session management
+ * - Indefinite session persistence (until manual logout)
+ * - Guest mode support
  * - Loading states for auth operations
  * - Error handling and user feedback
  * - Profile data integration
@@ -39,6 +40,7 @@ export interface AuthContextState {
   session: Session | null;
   profile: UserProfile | null;
   isAuthenticated: boolean;
+  isGuest: boolean;
 
   // Loading states
   loading: boolean;
@@ -78,6 +80,7 @@ interface AuthProviderProps {
  *
  * This component wraps the entire app and provides auth state to all child components.
  * It automatically listens for auth state changes and updates the context accordingly.
+ * Sessions persist indefinitely until manual logout.
  */
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Core auth state
@@ -94,6 +97,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Derived state
   const isAuthenticated = !!user && !!session;
+  const isGuest = !isAuthenticated;
 
   /**
    * Initialize auth state on app startup
@@ -103,7 +107,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const initializeAuth = async () => {
       try {
-        // Get current session
+        // Get current session - this will persist indefinitely
         const currentSession = await authService.getCurrentSession();
 
         if (isMounted) {
@@ -368,6 +372,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     session,
     profile,
     isAuthenticated,
+    isGuest,
 
     // Loading states
     loading,
