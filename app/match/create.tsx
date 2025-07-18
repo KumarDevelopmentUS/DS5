@@ -1,4 +1,4 @@
-// app/match/create.tsx - FULL VERSION WITH SAFEGUARDS
+// app/match/create.tsx - DIRECT NAVIGATION VERSION
 import React, { useEffect, useCallback } from 'react';
 import {
   Alert,
@@ -10,14 +10,12 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  MatchForm,
-  MatchCreatedDisplay,
-} from '../../components/forms/MatchForm';
+import { MatchForm } from '../../components/forms/MatchForm';
 import { useMatchCreation } from '../../hooks/match/useMatchCreation';
 import { SimpleScreen } from '../../components/Layout/Screen/SimpleScreen';
-import { useTheme } from '../../hooks/ui/useTheme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { SCREEN_TITLES, CONFIRMATION_MESSAGES } from '../../constants/messages';
+import type { MatchFormData } from '../../components/forms/MatchForm/MatchForm.types';
 
 export default function CreateMatchScreen() {
   const matchCreation = useMatchCreation();
@@ -28,6 +26,8 @@ export default function CreateMatchScreen() {
     hasCreatedMatch: !!matchCreation?.createdMatch,
     hasErrors: !!matchCreation?.errors,
     errors: matchCreation?.errors,
+    matchId: matchCreation?.createdMatch?.id,
+    roomCode: matchCreation?.roomCode,
   });
 
   // Safeguard against undefined matchCreation
@@ -40,6 +40,32 @@ export default function CreateMatchScreen() {
       </SimpleScreen>
     );
   }
+
+  // Auto-navigate to match when created
+  useEffect(() => {
+    if (matchCreation.createdMatch?.id) {
+      console.log(
+        'Match created, auto-navigating to match:',
+        matchCreation.createdMatch.id
+      );
+
+      // Small delay to ensure state is updated
+      const timer = setTimeout(() => {
+        const matchId = matchCreation.createdMatch!.id;
+        console.log('Navigating to match:', matchId);
+
+        // Clear the form state
+        if (matchCreation.resetForm) {
+          matchCreation.resetForm();
+        }
+
+        // Navigate directly to the match
+        router.replace(`/match/${matchId}` as any);
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [matchCreation.createdMatch?.id, matchCreation.resetForm]);
 
   /**
    * Handle Android back button
@@ -55,21 +81,21 @@ export default function CreateMatchScreen() {
       backAction
     );
     return () => backHandler.remove();
-  }, [matchCreation.formData, matchCreation.createdMatch]);
+  }, [matchCreation.formData]);
 
   /**
    * Handle back navigation with unsaved changes warning
    */
   const handleBackPress = useCallback(() => {
-    if (matchCreation.createdMatch) {
-      router.back();
-      return;
-    }
-
     const hasUnsavedChanges =
-      (matchCreation.formData?.title?.trim()?.length || 0) > 0 ||
-      (matchCreation.formData?.description?.trim()?.length || 0) > 0 ||
-      (matchCreation.formData?.location?.trim()?.length || 0) > 0;
+      (matchCreation.formData as MatchFormData)?.title?.trim()?.length > 0 ||
+      (matchCreation.formData as MatchFormData)?.location?.trim()?.length > 0 ||
+      (matchCreation.formData as MatchFormData)?.team1Name?.trim()?.length > 0 ||
+      (matchCreation.formData as MatchFormData)?.team2Name?.trim()?.length > 0 ||
+      (matchCreation.formData as MatchFormData)?.player1Name?.trim()?.length > 0 ||
+      (matchCreation.formData as MatchFormData)?.player2Name?.trim()?.length > 0 ||
+      (matchCreation.formData as MatchFormData)?.player3Name?.trim()?.length > 0 ||
+      (matchCreation.formData as MatchFormData)?.player4Name?.trim()?.length > 0;
 
     if (hasUnsavedChanges) {
       Alert.alert('Discard Changes?', CONFIRMATION_MESSAGES.DISCARD_CHANGES, [
@@ -89,14 +115,10 @@ export default function CreateMatchScreen() {
     } else {
       router.back();
     }
-  }, [
-    matchCreation.createdMatch,
-    matchCreation.formData,
-    matchCreation.resetForm,
-  ]);
+  }, [matchCreation.formData, matchCreation.resetForm]);
 
   /**
-   * Handle successful match creation - FIXED
+   * Handle successful match creation
    */
   const handleCreateMatch = useCallback(
     async (formData: any) => {
@@ -114,86 +136,32 @@ export default function CreateMatchScreen() {
         const result = await matchCreation.createMatch();
 
         if (result?.success && result?.data) {
-          console.log('Match created successfully:', result.data.roomCode);
+          console.log('Match created successfully:', {
+            id: result.data.id,
+            roomCode: result.data.roomCode,
+            title: result.data.title,
+          });
+          // Navigation will happen automatically via useEffect
         } else {
           console.error('Match creation failed:', result?.error);
+          Alert.alert(
+            'Match Creation Failed',
+            result?.error?.message ||
+              'Unable to create match. Please try again.',
+            [{ text: 'OK' }]
+          );
         }
       } catch (error) {
         console.error('Error in handleCreateMatch:', error);
+        Alert.alert(
+          'Error',
+          'An unexpected error occurred. Please try again.',
+          [{ text: 'OK' }]
+        );
       }
     },
     [matchCreation]
   );
-
-  /**
-   * Navigate to the created match
-   */
-  const handleGoToMatch = useCallback(() => {
-    if (matchCreation.createdMatch?.id) {
-      router.push(`/match/${matchCreation.createdMatch.id}` as any);
-    }
-  }, [matchCreation.createdMatch]);
-
-  /**
-   * Reset form to create another match
-   */
-  const handleCreateAnother = useCallback(() => {
-    if (matchCreation.resetToNewMatch) {
-      matchCreation.resetToNewMatch();
-    }
-  }, [matchCreation.resetToNewMatch]);
-
-  /**
-   * Handle sharing the match
-   */
-  const handleShareMatch = useCallback(async () => {
-    try {
-      if (matchCreation.shareMatch) {
-        await matchCreation.shareMatch();
-      }
-    } catch (error) {
-      Alert.alert(
-        'Share Failed',
-        'Unable to share the match. You can copy the room code instead.',
-        [
-          {
-            text: 'OK',
-          },
-          {
-            text: 'Copy Room Code',
-            onPress: async () => {
-              if (matchCreation.copyRoomCode) {
-                const success = await matchCreation.copyRoomCode();
-                if (success) {
-                  Alert.alert('Copied!', 'Room code copied to clipboard');
-                }
-              }
-            },
-          },
-        ]
-      );
-    }
-  }, [matchCreation.shareMatch, matchCreation.copyRoomCode]);
-
-  /**
-   * Handle copying room code
-   */
-  const handleCopyRoomCode = useCallback(async (): Promise<boolean> => {
-    if (matchCreation.copyRoomCode) {
-      return await matchCreation.copyRoomCode();
-    }
-    return false;
-  }, [matchCreation.copyRoomCode]);
-
-  // Determine which view to show
-  const showSuccessView = !!matchCreation.createdMatch;
-
-  // Safeguard for SCREEN_TITLES
-  const screenTitle = showSuccessView
-    ? 'Match Created'
-    : SCREEN_TITLES?.CREATE_MATCH || 'Create Match';
-
-  console.log('Rendering view:', { showSuccessView, screenTitle });
 
   return (
     <SimpleScreen
@@ -205,31 +173,20 @@ export default function CreateMatchScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          {screenTitle}
+          {SCREEN_TITLES?.CREATE_MATCH || 'Create Match'}
         </Text>
         <View style={styles.backButton} />
       </View>
-      {showSuccessView && matchCreation.createdMatch ? (
-        <MatchCreatedDisplay
-          match={matchCreation.createdMatch}
-          roomCode={matchCreation.roomCode || ''}
-          qrCodeData={matchCreation.qrCodeData || ''}
-          onCopyRoomCode={handleCopyRoomCode}
-          onShareMatch={handleShareMatch}
-          onCreateAnother={handleCreateAnother}
-          onGoToMatch={handleGoToMatch}
-        />
-      ) : (
-        <MatchForm
-          onSubmit={handleCreateMatch}
-          loading={matchCreation.isCreating || false}
-          serverError={
-            matchCreation.errors?.general
-              ? String(matchCreation.errors.general)
-              : undefined
-          }
-        />
-      )}
+
+      <MatchForm
+        onSubmit={handleCreateMatch}
+        loading={matchCreation.isCreating || false}
+        serverError={
+          matchCreation.errors?.general
+            ? String(matchCreation.errors.general)
+            : undefined
+        }
+      />
     </SimpleScreen>
   );
 }

@@ -27,6 +27,7 @@ import { MatchFormData, MatchFormProps } from './MatchForm.types';
  * - Updates only when user finishes editing (onBlur/onEndEditing)
  * - No complex prop passing that breaks
  * - Self-contained and simple
+ * - Now includes player name slots with defaults
  */
 export const MatchForm: React.FC<MatchFormProps> = ({
   onSubmit,
@@ -36,16 +37,29 @@ export const MatchForm: React.FC<MatchFormProps> = ({
 }) => {
   const { colors } = useTheme();
 
-  // Simple state management - like AuthForm but simpler
+  // Simple state management with default values
   const [formData, setFormData] = useState<MatchFormData>({
-    title: '',
-    description: '',
-    location: '',
+    title: 'Match',
+    description: 'Die up!',
+    location: 'The Grand Dome',
     scoreLimit: MATCH_SETTINGS.DEFAULT_SCORE_LIMIT,
     winByTwo: MATCH_SETTINGS.DEFAULT_WIN_BY_TWO,
     sinkPoints: MATCH_SETTINGS.DEFAULT_SINK_POINTS as 3 | 5,
     isPublic: false,
+    // Default player names
+    player1Name: 'Player 1',
+    player2Name: 'Player 2',
+    player3Name: 'Player 3',
+    player4Name: 'Player 4',
+    // Default team names
+    team1Name: 'Team 1',
+    team2Name: 'Team 2',
   });
+
+  // Track which fields have been edited by the user
+  const [editedFields, setEditedFields] = useState<Set<keyof MatchFormData>>(
+    new Set()
+  );
 
   const [errors, setErrors] = useState<
     Partial<Record<keyof MatchFormData, string>>
@@ -70,6 +84,26 @@ export const MatchForm: React.FC<MatchFormProps> = ({
           return 'Location must be less than 100 characters';
         }
         return undefined;
+      case 'player1Name':
+      case 'player2Name':
+      case 'player3Name':
+      case 'player4Name':
+        if (!value || value.trim().length === 0) {
+          return 'Player name is required';
+        }
+        if (value.trim().length > 30) {
+          return 'Player name must be less than 30 characters';
+        }
+        return undefined;
+      case 'team1Name':
+      case 'team2Name':
+        if (!value || value.trim().length === 0) {
+          return 'Team name is required';
+        }
+        if (value.trim().length > 25) {
+          return 'Team name must be less than 25 characters';
+        }
+        return undefined;
       case 'scoreLimit':
         if (!MATCH_SETTINGS.SCORE_LIMIT_OPTIONS.includes(value)) {
           return 'Please select a valid score limit';
@@ -88,6 +122,8 @@ export const MatchForm: React.FC<MatchFormProps> = ({
   // Update field value and clear error
   const updateField = (field: keyof MatchFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    // Mark field as edited when user changes it
+    setEditedFields((prev) => new Set(prev).add(field));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
@@ -266,6 +302,48 @@ export const MatchForm: React.FC<MatchFormProps> = ({
       color: colors.error,
       marginTop: SPACING.xs,
     },
+    playersGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: SPACING.sm,
+    },
+    playerInputContainer: {
+      flex: 1,
+      minWidth: '45%',
+    },
+    teamInputContainer: {
+      marginBottom: SPACING.md,
+    },
+    teamRow: {
+      flexDirection: 'row',
+      gap: SPACING.md,
+      marginBottom: SPACING.lg,
+    },
+    teamInputHalf: {
+      flex: 1,
+    },
+    defaultTextInput: {
+      color: colors.textSecondary,
+      fontStyle: 'italic',
+    },
+    editedTextInput: {
+      color: colors.text,
+      fontStyle: 'normal',
+    },
+    defaultText: {
+      color: colors.textSecondary,
+      fontStyle: 'italic',
+    },
+    editedText: {
+      color: colors.text,
+    },
+    teamBox: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: BORDERS.md,
+      backgroundColor: colors.surface,
+      padding: SPACING.md,
+    },
   });
 
   return (
@@ -285,50 +363,157 @@ export const MatchForm: React.FC<MatchFormProps> = ({
             Set up your die game and invite friends to join
           </Text>
 
-          {/* Basic Information - Same pattern as AuthForm */}
-          <View style={styles.inputContainer}>
-            <Input
-              label="Match Title"
-              value={formData.title}
-              onChangeText={(text: string) => updateField('title', text)}
-              onBlur={() => handleFieldBlur('title')}
-              error={errors.title}
-              placeholder={PLACEHOLDERS.MATCH_TITLE}
-              autoCapitalize="words"
-              maxLength={50}
-            />
+          {/* Match Title and Location side by side */}
+          <View style={{ flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.md }}>
+            <View style={{ flex: 1 }}>
+              <Input
+                label="Match Title"
+                value={formData.title}
+                onChangeText={(text: string) => updateField('title', text)}
+                onBlur={() => handleFieldBlur('title')}
+                error={errors.title}
+                placeholder={PLACEHOLDERS.MATCH_TITLE}
+                autoCapitalize="words"
+                maxLength={50}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Input
+                label="Location"
+                value={formData.location}
+                onChangeText={(text: string) => updateField('location', text)}
+                onBlur={() => handleFieldBlur('location')}
+                error={errors.location}
+                placeholder={PLACEHOLDERS.ENTER_LOCATION}
+                autoCapitalize="words"
+                maxLength={100}
+              />
+            </View>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Input
-              label="Description"
-              value={formData.description}
-              onChangeText={(text: string) => updateField('description', text)}
-              onBlur={() => handleFieldBlur('description')}
-              error={errors.description}
-              placeholder={PLACEHOLDERS.MATCH_DESCRIPTION}
-              multiline
-              maxLength={500}
-              autoCapitalize="sentences"
-            />
+          {/* Team 1 Box */}
+          <View style={[{ marginBottom: SPACING.md }, styles.teamBox]}>
+            <View style={{ alignItems: 'center', marginBottom: SPACING.sm }}>
+              <Input
+                label="Team 1 Name"
+                value={formData.team1Name}
+                onChangeText={(text: string) => updateField('team1Name', text)}
+                onBlur={() => handleFieldBlur('team1Name')}
+                error={errors.team1Name}
+                placeholder="Team 1"
+                autoCapitalize="words"
+                maxLength={25}
+                containerStyle={{ width: '60%' }}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', gap: SPACING.md }}>
+              <View style={{ flex: 1 }}>
+                <Input
+                  label="Player 1"
+                  value={formData.player1Name}
+                  onChangeText={(text: string) => updateField('player1Name', text)}
+                  onBlur={() => handleFieldBlur('player1Name')}
+                  error={errors.player1Name}
+                  placeholder="Player 1"
+                  autoCapitalize="words"
+                  maxLength={30}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Input
+                  label="Player 2"
+                  value={formData.player2Name}
+                  onChangeText={(text: string) => updateField('player2Name', text)}
+                  onBlur={() => handleFieldBlur('player2Name')}
+                  error={errors.player2Name}
+                  placeholder="Player 2"
+                  autoCapitalize="words"
+                  maxLength={30}
+                />
+              </View>
+            </View>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Input
-              label="Location"
-              value={formData.location}
-              onChangeText={(text: string) => updateField('location', text)}
-              onBlur={() => handleFieldBlur('location')}
-              error={errors.location}
-              placeholder={PLACEHOLDERS.ENTER_LOCATION}
-              maxLength={100}
-              autoCapitalize="words"
-            />
+          {/* Team 2 Box */}
+          <View style={[{ marginBottom: SPACING.md }, styles.teamBox]}>
+            <View style={{ alignItems: 'center', marginBottom: SPACING.sm }}>
+              <Input
+                label="Team 2 Name"
+                value={formData.team2Name}
+                onChangeText={(text: string) => updateField('team2Name', text)}
+                onBlur={() => handleFieldBlur('team2Name')}
+                error={errors.team2Name}
+                placeholder="Team 2"
+                autoCapitalize="words"
+                maxLength={25}
+                containerStyle={{ width: '60%' }}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', gap: SPACING.md }}>
+              <View style={{ flex: 1 }}>
+                <Input
+                  label="Player 3"
+                  value={formData.player3Name}
+                  onChangeText={(text: string) => updateField('player3Name', text)}
+                  onBlur={() => handleFieldBlur('player3Name')}
+                  error={errors.player3Name}
+                  placeholder="Player 3"
+                  autoCapitalize="words"
+                  maxLength={30}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Input
+                  label="Player 4"
+                  value={formData.player4Name}
+                  onChangeText={(text: string) => updateField('player4Name', text)}
+                  onBlur={() => handleFieldBlur('player4Name')}
+                  error={errors.player4Name}
+                  placeholder="Player 4"
+                  autoCapitalize="words"
+                  maxLength={30}
+                />
+              </View>
+            </View>
           </View>
 
-          {/* Game Settings - Inline and simple */}
+          {/* Game Settings */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Game Settings</Text>
+
+            {/* Sink Points */}
+            <View style={styles.settingGroup}>
+              <Text style={styles.settingLabel}>Sink Points</Text>
+              <Text style={styles.settingDescription}>
+                Points awarded for sinking the die
+              </Text>
+              <View style={styles.optionRow}>
+                {MATCH_SETTINGS.SINK_POINTS_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.optionButton,
+                      formData.sinkPoints === option &&
+                        styles.optionButtonActive,
+                    ]}
+                    onPress={() => updateField('sinkPoints', option as 3 | 5)}
+                  >
+                    <Text
+                      style={[
+                        styles.optionText,
+                        formData.sinkPoints === option &&
+                          styles.optionTextActive,
+                      ]}
+                    >
+                      {String(option) + ' pts'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {errors.sinkPoints && (
+                <Text style={styles.errorText}>{errors.sinkPoints}</Text>
+              )}
+            </View>
 
             {/* Score Limit */}
             <View style={styles.settingGroup}>
@@ -384,40 +569,6 @@ export const MatchForm: React.FC<MatchFormProps> = ({
               </View>
             </View>
 
-            {/* Sink Points - FIXED */}
-            <View style={styles.settingGroup}>
-              <Text style={styles.settingLabel}>Sink Points</Text>
-              <Text style={styles.settingDescription}>
-                Points awarded for sinking the die
-              </Text>
-              <View style={styles.optionRow}>
-                {MATCH_SETTINGS.SINK_POINTS_OPTIONS.map((option) => (
-                  <TouchableOpacity
-                    key={option}
-                    style={[
-                      styles.optionButton,
-                      formData.sinkPoints === option &&
-                        styles.optionButtonActive,
-                    ]}
-                    onPress={() => updateField('sinkPoints', option as 3 | 5)}
-                  >
-                    <Text
-                      style={[
-                        styles.optionText,
-                        formData.sinkPoints === option &&
-                          styles.optionTextActive,
-                      ]}
-                    >
-                      {String(option) + ' pts'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {errors.sinkPoints && (
-                <Text style={styles.errorText}>{errors.sinkPoints}</Text>
-              )}
-            </View>
-
             {/* Visibility */}
             <View style={styles.settingGroup}>
               <View style={styles.switchRow}>
@@ -442,32 +593,14 @@ export const MatchForm: React.FC<MatchFormProps> = ({
             </View>
           </View>
 
-          {/* Team Info Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Team Setup</Text>
-            <View style={styles.infoCard}>
-              <Text style={styles.infoText}>
-                🎯 <Text style={styles.infoTextBold}>4 Players Total</Text> - 2
-                teams of 2 players each
-              </Text>
-              <Text style={styles.infoText}>
-                🔀 <Text style={styles.infoTextBold}>Random Teams</Text> -
-                Players will be automatically assigned
-              </Text>
-              <Text style={styles.infoTextSmall}>
-                Manual team selection coming in a future update
-              </Text>
-            </View>
-          </View>
-
-          {/* Server Error - Same pattern as AuthForm */}
+          {/* Server Error */}
           {serverError && (
             <View style={styles.errorContainer}>
               <Text style={styles.serverErrorText}>{serverError}</Text>
             </View>
           )}
 
-          {/* Buttons - FIXED: Removed extra Text wrapper */}
+          {/* Buttons */}
           <View style={styles.buttonContainer}>
             <Button onPress={handleSubmit} loading={loading}>
               <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>

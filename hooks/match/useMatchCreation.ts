@@ -365,19 +365,30 @@ export const useMatchCreation = (): UseMatchCreationReturn => {
       const title = formData.title && formData.title.trim().length > 0 ? formData.title.trim() : 'Match';
       const createMatchData: CreateMatchData = {
         title: sanitizeInput(title),
-        description: formData.description.trim() || undefined,
+        description: formData.description?.trim() || undefined,
         gameType: 'die_stats', // Always die game as specified
-        location: formData.location.trim() || undefined,
+        location: formData.location?.trim() || undefined,
         scoreLimit: formData.scoreLimit,
         winByTwo: formData.winByTwo,
         sinkPoints: formData.sinkPoints,
         isPublic: formData.isPublic,
-        // TODO: Add team assignment when implemented
-        // teamAssignment: formData.teamAssignment,
+        settings: {
+          teamNames: {
+            team1: formData.team1Name,
+            team2: formData.team2Name,
+          },
+          playerNames: {
+            player1: formData.player1Name,
+            player2: formData.player2Name,
+            player3: formData.player3Name,
+            player4: formData.player4Name,
+          },
+        },
       };
 
       // Create the match
       const result = await matchService.createMatch(createMatchData, user.id);
+      console.log('Match creation result:', result);
 
       if (result.success && result.data) {
         // Set created match and generate sharing data
@@ -388,6 +399,7 @@ export const useMatchCreation = (): UseMatchCreationReturn => {
         setErrors({
           general: result.error?.message || ERROR_MESSAGES.UNKNOWN_ERROR,
         });
+        console.error('Match creation error:', result.error);
       }
 
       return result;

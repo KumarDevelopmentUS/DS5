@@ -1,4 +1,4 @@
-// components/match/PlayLogger/PlayLogger.tsx
+// components/match/PlayLogger/PlayLogger.tsx - FIXED VERSION
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import {
@@ -99,7 +99,6 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
     (throwType: PlayType) => {
       const updates: Partial<PlayLoggerState> = {
         selectedThrowType: throwType,
-        // Reset dependent selections
         selectedDefender: null,
         selectedDefenseType: null,
         showFifa: false,
@@ -215,10 +214,8 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
 
     try {
       await onSubmitPlay(playData);
-      // Reset state after successful submission
       setState(resetPlayState());
     } catch (error) {
-      // Error handling is done by parent component
       console.error('Failed to submit play:', error);
     }
   }, [state, currentTeam, onSubmitPlay]);
@@ -315,7 +312,7 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
           >
             {displayInfo.name}
           </Text>
-          {displayInfo.points > 0 && (
+          {displayInfo.points > 0 ? (
             <Text
               style={[
                 styles.playTypePoints,
@@ -326,7 +323,7 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
             >
               {displayInfo.points} pt{displayInfo.points !== 1 ? 's' : ''}
             </Text>
-          )}
+          ) : null}
         </View>
       </Button>
     );
@@ -426,169 +423,164 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
 
       {/* Defense Section - Skip for Self Sink */}
       {state.selectedThrowType &&
-        state.selectedThrowType !== PlayType.SELF_SINK && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Defense
-              </Text>
-              <Text
-                style={[
-                  styles.sectionSubtitle,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                Optional
-              </Text>
-            </View>
+      state.selectedThrowType !== PlayType.SELF_SINK ? (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Defense
+            </Text>
             <Text
               style={[styles.sectionSubtitle, { color: colors.textSecondary }]}
             >
-              Select defending player and defense result
+              Optional
             </Text>
+          </View>
+          <Text
+            style={[styles.sectionSubtitle, { color: colors.textSecondary }]}
+          >
+            Select defending player and defense result
+          </Text>
 
-            {/* Defending Player */}
-            <View style={{ marginBottom: SPACING.md }}>
-              <Text
+          {/* Defending Player */}
+          <View style={{ marginBottom: SPACING.md }}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color: colors.text,
+                  fontSize: TYPOGRAPHY.sizes.subheadline,
+                },
+              ]}
+            >
+              Defending Player
+            </Text>
+            <View style={styles.buttonGrid}>
+              {opposingTeamPlayers.map((player) =>
+                renderPlayerButton(
+                  player,
+                  state.selectedDefender === player.userId,
+                  () => handlePlayerSelect(player.userId, 'defender'),
+                  `${testID}-defender-${player.userId}`
+                )
+              )}
+              <Button
+                onPress={() => updateState({ selectedDefender: 'team' })}
                 style={[
-                  styles.sectionTitle,
+                  styles.playTypeButton,
                   {
-                    color: colors.text,
-                    fontSize: TYPOGRAPHY.sizes.subheadline,
+                    backgroundColor:
+                      state.selectedDefender === 'team'
+                        ? colors.primary
+                        : colors.surface,
+                    borderColor:
+                      state.selectedDefender === 'team'
+                        ? colors.primary
+                        : colors.border,
                   },
                 ]}
+                testID={`${testID}-defender-team`}
               >
-                Defending Player
+                <Text
+                  style={[
+                    styles.playTypeName,
+                    {
+                      color:
+                        state.selectedDefender === 'team'
+                          ? colors.background
+                          : colors.text,
+                    },
+                  ]}
+                >
+                  TEAM
+                </Text>
+              </Button>
+              <Button
+                onPress={() => updateState({ selectedDefender: 'na' })}
+                style={[
+                  styles.playTypeButton,
+                  {
+                    backgroundColor:
+                      state.selectedDefender === 'na'
+                        ? colors.textSecondary
+                        : colors.surface,
+                    borderColor:
+                      state.selectedDefender === 'na'
+                        ? colors.textSecondary
+                        : colors.border,
+                  },
+                ]}
+                testID={`${testID}-defender-na`}
+              >
+                <Text
+                  style={[
+                    styles.playTypeName,
+                    {
+                      color:
+                        state.selectedDefender === 'na'
+                          ? colors.background
+                          : colors.text,
+                    },
+                  ]}
+                >
+                  N/A
+                </Text>
+              </Button>
+            </View>
+          </View>
+
+          {/* Defense Result */}
+          <View style={{ marginBottom: SPACING.md }}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color: colors.text,
+                  fontSize: TYPOGRAPHY.sizes.subheadline,
+                },
+              ]}
+            >
+              Defense Result
+            </Text>
+
+            {/* Good Defense */}
+            <View style={{ marginBottom: SPACING.sm }}>
+              <Text style={[styles.sectionSubtitle, { color: colors.success }]}>
+                Successful Defense
               </Text>
               <View style={styles.buttonGrid}>
-                {opposingTeamPlayers.map((player) =>
-                  renderPlayerButton(
-                    player,
-                    state.selectedDefender === player.userId,
-                    () => handlePlayerSelect(player.userId, 'defender'),
-                    `${testID}-defender-${player.userId}`
+                {playTypes.goodDefense.map((defenseType) =>
+                  renderPlayTypeButton(
+                    defenseType,
+                    state.selectedDefenseType === defenseType,
+                    () => handleDefenseTypeSelect(defenseType),
+                    `${testID}-defense-${defenseType}`
                   )
                 )}
-                <Button
-                  onPress={() => updateState({ selectedDefender: 'team' })}
-                  style={[
-                    styles.playTypeButton,
-                    {
-                      backgroundColor:
-                        state.selectedDefender === 'team'
-                          ? colors.primary
-                          : colors.surface,
-                      borderColor:
-                        state.selectedDefender === 'team'
-                          ? colors.primary
-                          : colors.border,
-                    },
-                  ]}
-                  testID={`${testID}-defender-team`}
-                >
-                  <Text
-                    style={[
-                      styles.playTypeName,
-                      {
-                        color:
-                          state.selectedDefender === 'team'
-                            ? colors.background
-                            : colors.text,
-                      },
-                    ]}
-                  >
-                    TEAM
-                  </Text>
-                </Button>
-                <Button
-                  onPress={() => updateState({ selectedDefender: 'na' })}
-                  style={[
-                    styles.playTypeButton,
-                    {
-                      backgroundColor:
-                        state.selectedDefender === 'na'
-                          ? colors.textSecondary
-                          : colors.surface,
-                      borderColor:
-                        state.selectedDefender === 'na'
-                          ? colors.textSecondary
-                          : colors.border,
-                    },
-                  ]}
-                  testID={`${testID}-defender-na`}
-                >
-                  <Text
-                    style={[
-                      styles.playTypeName,
-                      {
-                        color:
-                          state.selectedDefender === 'na'
-                            ? colors.background
-                            : colors.text,
-                      },
-                    ]}
-                  >
-                    N/A
-                  </Text>
-                </Button>
               </View>
             </View>
 
-            {/* Defense Result */}
-            <View style={{ marginBottom: SPACING.md }}>
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    color: colors.text,
-                    fontSize: TYPOGRAPHY.sizes.subheadline,
-                  },
-                ]}
-              >
-                Defense Result
+            {/* Bad Defense */}
+            <View>
+              <Text style={[styles.sectionSubtitle, { color: colors.error }]}>
+                Failed Defense
               </Text>
-
-              {/* Good Defense */}
-              <View style={{ marginBottom: SPACING.sm }}>
-                <Text
-                  style={[styles.sectionSubtitle, { color: colors.success }]}
-                >
-                  Successful Defense
-                </Text>
-                <View style={styles.buttonGrid}>
-                  {playTypes.goodDefense.map((defenseType) =>
-                    renderPlayTypeButton(
-                      defenseType,
-                      state.selectedDefenseType === defenseType,
-                      () => handleDefenseTypeSelect(defenseType),
-                      `${testID}-defense-${defenseType}`
-                    )
-                  )}
-                </View>
-              </View>
-
-              {/* Bad Defense */}
-              <View>
-                <Text style={[styles.sectionSubtitle, { color: colors.error }]}>
-                  Failed Defense
-                </Text>
-                <View style={styles.buttonGrid}>
-                  {playTypes.badDefense.map((defenseType) =>
-                    renderPlayTypeButton(
-                      defenseType,
-                      state.selectedDefenseType === defenseType,
-                      () => handleDefenseTypeSelect(defenseType),
-                      `${testID}-defense-${defenseType}`
-                    )
-                  )}
-                </View>
+              <View style={styles.buttonGrid}>
+                {playTypes.badDefense.map((defenseType) =>
+                  renderPlayTypeButton(
+                    defenseType,
+                    state.selectedDefenseType === defenseType,
+                    () => handleDefenseTypeSelect(defenseType),
+                    `${testID}-defense-${defenseType}`
+                  )
+                )}
               </View>
             </View>
           </View>
-        )}
+        </View>
+      ) : null}
 
       {/* FIFA Section */}
-      {shouldShowFifa(state.selectedThrowType) && (
+      {shouldShowFifa(state.selectedThrowType) ? (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -607,7 +599,7 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
             </Button>
           </View>
 
-          {state.showFifa && (
+          {state.showFifa ? (
             <View
               style={[
                 styles.fifaSection,
@@ -675,7 +667,7 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
                   >
                     <Text
                       style={[
-                        styles.fifaActionText,
+                        styles.playTypeName,
                         {
                           color:
                             state.selectedFifaAction === 'good_kick'
@@ -706,7 +698,7 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
                   >
                     <Text
                       style={[
-                        styles.fifaActionText,
+                        styles.playTypeName,
                         {
                           color:
                             state.selectedFifaAction === 'bad_kick'
@@ -721,12 +713,12 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
                 </View>
               </View>
             </View>
-          )}
+          ) : null}
         </View>
-      )}
+      ) : null}
 
       {/* Redemption Section */}
-      {canShowRedemption(state) && (
+      {canShowRedemption(state) ? (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -747,7 +739,7 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
             </Button>
           </View>
 
-          {state.showRedemption && (
+          {state.showRedemption ? (
             <View
               style={[
                 styles.redemptionSection,
@@ -785,7 +777,7 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
                 >
                   <Text
                     style={[
-                      styles.redemptionButtonText,
+                      styles.playTypeName,
                       {
                         color:
                           state.redemptionSuccess === true
@@ -816,7 +808,7 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
                 >
                   <Text
                     style={[
-                      styles.redemptionButtonText,
+                      styles.playTypeName,
                       {
                         color:
                           state.redemptionSuccess === false
@@ -830,9 +822,9 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
                 </Button>
               </View>
             </View>
-          )}
+          ) : null}
         </View>
-      )}
+      ) : null}
 
       {/* Special Section */}
       <View style={styles.section}>
@@ -853,7 +845,7 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
           </Button>
         </View>
 
-        {state.showSpecial && (
+        {state.showSpecial ? (
           <View
             style={[
               styles.specialSection,
@@ -882,7 +874,7 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
             >
               <Text
                 style={[
-                  styles.specialButtonText,
+                  styles.playTypeName,
                   {
                     color:
                       state.selectedThrowType === PlayType.SELF_SINK
@@ -895,18 +887,18 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
               </Text>
             </Button>
           </View>
-        )}
+        ) : null}
       </View>
 
       {/* Error Display */}
-      {state.errors.length > 0 && (
+      {state.errors.length > 0 ? (
         <View
           style={[
             styles.errorContainer,
             { backgroundColor: colors.error + '20', borderColor: colors.error },
           ]}
         >
-          {state.errors.map((error, index) => (
+          {state.errors.map((error: string, index: number) => (
             <Text
               key={index}
               style={[styles.errorText, { color: colors.error }]}
@@ -915,13 +907,13 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
             </Text>
           ))}
         </View>
-      )}
+      ) : null}
 
       {/* Actions */}
       <View
         style={[styles.actionsContainer, { borderTopColor: colors.border }]}
       >
-        {onUndo && (
+        {onUndo ? (
           <Button
             onPress={handleUndo}
             variant="outline"
@@ -929,9 +921,11 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
             style={styles.undoButton}
             testID={`${testID}-undo`}
           >
-            Undo
+            <Text style={[styles.showButtonText, { color: colors.primary }]}>
+              Undo
+            </Text>
           </Button>
-        )}
+        ) : null}
         <Button
           onPress={handleSubmit}
           disabled={!state.canSubmit || disabled || isSubmitting}
@@ -939,18 +933,30 @@ export const PlayLogger: React.FC<PlayLoggerProps> = ({
           style={styles.submitButton}
           testID={`${testID}-submit`}
         >
-          Submit Play
+          <Text
+            style={[
+              styles.playTypeName,
+              {
+                color:
+                  !state.canSubmit || disabled || isSubmitting
+                    ? colors.textSecondary
+                    : colors.background,
+              },
+            ]}
+          >
+            Submit Play
+          </Text>
         </Button>
       </View>
 
       {/* Loading Overlay */}
-      {isSubmitting && (
+      {isSubmitting ? (
         <View
           style={[styles.loadingOverlay, { backgroundColor: colors.overlay }]}
         >
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      )}
+      ) : null}
     </ScrollView>
   );
 };
