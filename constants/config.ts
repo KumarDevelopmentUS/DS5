@@ -1,5 +1,12 @@
 // constants/config.ts
 
+/**
+ * Application Configuration
+ * 
+ * Centralized configuration for API settings, storage, pagination, and app features.
+ * Environment variables and feature flags are managed here.
+ */
+
 // API Configuration
 export const API_CONFIG = {
   // Supabase configuration

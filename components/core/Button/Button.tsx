@@ -5,6 +5,13 @@ import { ButtonProps } from './Button.types';
 import { styles } from './Button.styles';
 import { useTheme } from '../../../contexts/ThemeContext';
 
+/**
+ * Button Component
+ * 
+ * Versatile button component with multiple variants, sizes, and states.
+ * Supports loading states, icons, and accessibility features.
+ */
+
 export const Button: React.FC<ButtonProps> = ({
   children,
   variant = 'primary',

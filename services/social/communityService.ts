@@ -403,6 +403,7 @@ export class CommunityService {
           role: data.role as 'member' | 'moderator' | 'admin',
           status: 'active',
           joinedAt: new Date(data.joined_at!),
+          user: undefined, // TODO: Fetch user data if needed
         },
         error: null,
         timestamp: new Date().toISOString(),
@@ -459,6 +460,7 @@ export class CommunityService {
           role: data.role as 'member' | 'moderator' | 'admin',
           status: 'active', // Assuming 'active' if they exist
           joinedAt: new Date(data.joined_at!),
+          user: null, // TODO: Fetch user data if needed
         },
         error: null,
         timestamp: new Date().toISOString(),

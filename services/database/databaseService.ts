@@ -6,17 +6,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 /**
- * Supabase Database Service
- *
- * This service creates and exports a singleton instance of the Supabase client
- * that serves as the central point of connection to the backend for the entire application.
- *
- * Features:
- * - Type-safe database operations using generated Database types
- * - Optimized configuration for React Native environment
- * - Session persistence and automatic token refresh
- * - Real-time subscriptions support
- * - Proper error handling and retry logic
+ * Database Service
+ * 
+ * Centralized Supabase client configuration with type safety and React Native optimization.
+ * Provides database connection, real-time subscriptions, and error handling utilities.
  */
 
 // Validate required configuration
@@ -31,13 +24,9 @@ if (!API_CONFIG.SUPABASE_ANON_KEY) {
 }
 
 /**
- * Create a single, reusable Supabase client instance with full type safety
- *
- * Configuration optimized for React Native:
- * - Session persistence using AsyncStorage (when available)
- * - Automatic token refresh to maintain authentication
- * - Real-time features enabled for live match updates
- * - URL detection disabled (not needed for mobile apps)
+ * Supabase Client Configuration
+ * 
+ * Optimized for React Native with session persistence, real-time features, and type safety.
  */
 const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
@@ -82,12 +71,9 @@ export const supabase = createClient<Database>(
 );
 
 /**
- * Database connection health check
- *
- * This function can be used to verify that the database connection is working
- * properly. It's useful for debugging connection issues or health monitoring.
- *
- * @returns Promise<boolean> - True if connection is healthy, false otherwise
+ * Database Connection Health Check
+ * 
+ * Verifies database connectivity for debugging and health monitoring.
  */
 export const checkDatabaseConnection = async (): Promise<boolean> => {
   try {
@@ -107,11 +93,9 @@ export const checkDatabaseConnection = async (): Promise<boolean> => {
 };
 
 /**
- * Get current database configuration info
- *
- * Useful for debugging and monitoring
- *
- * @returns Object containing non-sensitive configuration details
+ * Database Configuration Info
+ * 
+ * Returns non-sensitive configuration details for debugging and monitoring.
  */
 export const getDatabaseInfo = () => {
   return {
@@ -122,13 +106,9 @@ export const getDatabaseInfo = () => {
 };
 
 /**
- * Database error handler utility
- *
- * Provides consistent error handling across the application
- *
- * @param error - The error from a Supabase operation
- * @param operation - Description of the operation that failed
- * @returns Formatted error object
+ * Database Error Handler
+ * 
+ * Provides consistent error handling and logging across database operations.
  */
 export const handleDatabaseError = (error: any, operation: string) => {
   const errorInfo = {

@@ -1,11 +1,6 @@
+// app/(auth)/login.tsx
 import React, { useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthForm } from '../../components/forms/AuthForm';
 import { authService } from '../../services/auth/authService';
@@ -13,6 +8,13 @@ import { SPACING } from '../../constants/theme';
 import { useTheme } from '../../hooks/ui/useTheme';
 import { useKeyboard } from '../../hooks/ui/useKeyboard';
 import type { SignInData } from '../../services/auth/authService';
+
+/**
+ * Login Screen
+ * 
+ * User authentication screen with form validation and keyboard handling.
+ * Integrates with auth service for secure sign-in functionality.
+ */
 
 export default function LoginScreen() {
   const router = useRouter();

@@ -1,44 +1,20 @@
 // hooks/match/useMatch.ts
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Match,
-  Player,
-  TeamScore,
-  PlayerMatchStats,
-  LiveMatchData,
-  LivePlayerStats,
-  MatchEvent,
-} from '../../types/models';
+import { Match, Player, TeamScore, PlayerMatchStats, LiveMatchData, LivePlayerStats, MatchEvent } from '../../types/models';
 import { MatchStatus, PlayType } from '../../types/enums';
 import { ApiError, ApiResponse } from '../../types/api';
-import {
-  matchService,
-  type SubmitPlayData,
-} from '../../services/match/matchService';
-import {
-  realtimeService,
-  type MatchSubscriptionCallbacks,
-  type BroadcastPlayData,
-} from '../../services/match/realtimeService';
+import { matchService, type SubmitPlayData } from '../../services/match/matchService';
+import { realtimeService, type MatchSubscriptionCallbacks, type BroadcastPlayData } from '../../services/match/realtimeService';
 import { useAuth } from '../auth/useAuth';
 import { parseError, createErrorHandler } from '../../utils/errors';
 import { calculateMVP } from '../../utils/calculations';
 
 /**
  * useMatch Hook
- *
- * A comprehensive hook for managing the state of a single, live match.
- * Handles real-time updates, play submission, and match control operations.
- *
- * Features:
- * - Real-time match state synchronization
- * - Play submission with optimistic updates
- * - Match control (pause, resume, end)
- * - Player statistics tracking
- * - Error handling and offline support
- * - MVP calculation
- * - Presence tracking
+ * 
+ * Comprehensive hook for managing live match state, real-time updates, and player interactions.
+ * Handles match data fetching, real-time subscriptions, play submission, and match control.
  */
 
 // ============================================
@@ -374,7 +350,7 @@ export const useMatch = (
       setIsConnected(true);
 
       // Refresh data after reconnection
-      queryClient.invalidateQueries(['match', matchId]);
+      queryClient.invalidateQueries({ queryKey: ['match', matchId] });
     },
   }), [matchId, trackPresence, onError, queryClient]);
 

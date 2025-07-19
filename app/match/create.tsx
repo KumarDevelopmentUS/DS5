@@ -1,13 +1,6 @@
-// app/match/create.tsx - UPDATED FOR TRACKER
+// app/match/create.tsx
 import React, { useEffect, useCallback } from 'react';
-import {
-  Alert,
-  BackHandler,
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-} from 'react-native';
+import { Alert, BackHandler, View, Text, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MatchForm } from '../../components/forms/MatchForm';
@@ -19,6 +12,11 @@ import { SCREEN_TITLES, CONFIRMATION_MESSAGES } from '../../constants/messages';
 import { TrackerMatchFormData } from '../../types/tracker';
 import { createDefaultMatchSettings } from '../../utils/playerDefaults';
 
+/**
+ * Create Match Screen
+ * 
+ * Handles match creation with form validation and navigation to tracker.
+ */
 export default function CreateMatchScreen() {
   const { colors } = useTheme();
   const { user, isAuthenticated } = useAuth();

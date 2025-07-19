@@ -6,6 +6,13 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { styles } from './Avatar.styles';
 import { AvatarProps } from './Avatar.types';
 
+/**
+ * Avatar Component
+ * 
+ * User profile image component with fallback initials and status indicators.
+ * Supports multiple sizes, pressable interactions, and loading states.
+ */
+
 export const Avatar: React.FC<AvatarProps> = ({
   source,
   name = '',

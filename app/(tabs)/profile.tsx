@@ -214,11 +214,7 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Player stats hook
-  const {
-    data: playerStats,
-    isLoading: isLoadingStats,
-    refetch: refetchStats,
-  } = usePlayerStats(user?.id);
+  const playerStats = usePlayerStats(user?.id);
 
   // Handle authentication actions
   const handleSignIn = () => {
@@ -233,11 +229,11 @@ export default function ProfileScreen() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await refetchStats();
+      await playerStats.refetch();
     } finally {
       setRefreshing(false);
     }
-  }, [refetchStats]);
+  }, [playerStats.refetch]);
 
   // Render guest content
   const renderGuestContent = () => (
@@ -367,9 +363,9 @@ export default function ProfileScreen() {
             />
             <SegmentedControl selected={activeTab} onSelect={setActiveTab} />
             <View style={styles.statsContent}>
-              {isLoadingStats ? (
+              {playerStats.isLoading ? (
                 <Spinner />
-              ) : playerStats?.stats ? (
+              ) : playerStats.stats ? (
                 <View style={styles.statsCards}>
                   <StatCard
                     title="Win Rate"
@@ -421,7 +417,7 @@ export default function ProfileScreen() {
             />
             <SegmentedControl selected={activeTab} onSelect={setActiveTab} />
             <View style={styles.achievementsContent}>
-              {isLoadingStats ? (
+              {playerStats.isLoading ? (
                 <Spinner />
               ) : playerStats?.achievements ? (
                 <AchievementGrid

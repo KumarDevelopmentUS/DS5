@@ -1,3 +1,4 @@
+// app/index.tsx
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../hooks/auth/useAuth';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
@@ -5,10 +6,8 @@ import { useTheme } from '../hooks/ui/useTheme';
 
 /**
  * App Entry Point
- *
- * This component acts as the initial router for the application. It redirects
- * all users to the home page, where they can access the app as either
- * authenticated users or guests.
+ * 
+ * Initial router that redirects users to the home page or handles QR code parameters.
  */
 export default function Index() {
   const { loading } = useAuth();
@@ -24,11 +23,9 @@ export default function Index() {
     );
   }
 
-  // If there's a code parameter, redirect to the join page
+  // If there's a code parameter, redirect to the new room code-based join page
   if (code) {
-    // We need to find the match by room code first
-    // For now, redirect to home and show a message
-    return <Redirect href={`/(tabs)/home?code=${code}`} />;
+    return <Redirect href={`/match/join/code/${code}`} />;
   }
 
   // Always redirect to home page - users can be guests or authenticated

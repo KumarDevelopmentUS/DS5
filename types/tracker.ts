@@ -1,13 +1,14 @@
 // types/tracker.ts
 import { ViewStyle } from 'react-native';
 import { PlayType, MatchStatus } from './enums';
-import {
-  Match,
-  Player,
-  LivePlayerStats,
-  TeamScore,
-  MatchEvent,
-} from './models';
+import { Match, Player, LivePlayerStats, TeamScore, MatchEvent } from './models';
+
+/**
+ * Tracker Types
+ * 
+ * Type definitions for the match tracker system including enhanced settings,
+ * player management, and real-time update interfaces.
+ */
 
 // Enhanced match settings to include team and player names
 export interface EnhancedMatchSettings {

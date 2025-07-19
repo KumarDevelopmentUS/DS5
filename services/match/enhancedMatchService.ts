@@ -1,27 +1,20 @@
-// services/match/enhancedMatchService.ts - ENHANCED FOR TRACKER
+// services/match/enhancedMatchService.ts
 import { supabase } from '../database/databaseService';
 import { ApiResponse } from '../../types/api';
-import {
-  TrackerMatchFormData,
-  EnhancedMatchSettings,
-} from '../../types/tracker';
+import { TrackerMatchFormData, EnhancedMatchSettings } from '../../types/tracker';
 import { Match } from '../../types/models';
 import { MatchStatus, UserRole } from '../../types/enums';
 import type { MatchConfig } from '../../types/models';
-import {
-  createDefaultMatchSettings,
-  createParticipantForDefaultPlayer,
-  initializeLiveMatchData,
-} from '../../utils/playerDefaults';
+import { createDefaultMatchSettings, createParticipantForDefaultPlayer, initializeLiveMatchData } from '../../utils/playerDefaults';
 import { createErrorHandler } from '../../utils/errors';
 import { sanitizeInput, validateMatchTitle } from '../../utils/validation';
 import { MATCH_CONFIG } from '../../constants/config';
 
 /**
- * Enhanced Match Service for Tracker System
- *
- * Handles match creation with full team/player name support
- * Creates default players in the database for complete match tracking
+ * Enhanced Match Service
+ * 
+ * Handles match creation, joining, and real-time updates for the tracker system.
+ * Manages both database records and live match data synchronization.
  */
 
 // Enhanced create match data interface
@@ -739,7 +732,7 @@ export class EnhancedMatchService {
           throw participantsError;
         }
 
-        const takenSlots = allParticipants?.map(p => p.slot_id) || [];
+        const takenSlots = allParticipants?.map(p => p.user_id) || [];
         const availableSlots = ['default_1', 'default_2', 'default_3', 'default_4'].filter(
           slot => !takenSlots.includes(slot)
         );
@@ -843,11 +836,11 @@ export class EnhancedMatchService {
         await realtimeService.broadcastPlay(matchId, {
           playerId: userId,
           eventType: 'join' as any,
-          eventData: {
-            displayName: displayName,
-            team: team,
-            slotId: slotId,
-          },
+                                  eventData: {
+              // displayName: displayName, // Removed as it's not part of EventData type
+              // team: team, // Removed as it's not part of EventData type
+              // slotId: slotId, // Removed as it's not part of EventData type
+            },
           team: team,
           timestamp: new Date(),
         });

@@ -1,12 +1,12 @@
 // types/models.ts
-import {
-  MatchStatus,
-  NotificationType,
-  PlayType,
-  PrivacyLevel,
-  Theme,
-  UserRole,
-} from './enums';
+import { MatchStatus, NotificationType, PlayType, PrivacyLevel, Theme, UserRole } from './enums';
+
+/**
+ * Data Models
+ * 
+ * Core type definitions for users, matches, social features, and application state.
+ * Provides type safety and consistency across the application.
+ */
 
 // ============================================
 // USER RELATED INTERFACES

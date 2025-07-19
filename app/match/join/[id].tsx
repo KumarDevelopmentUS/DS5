@@ -1,7 +1,7 @@
+// app/match/join/[id].tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../../../components/core/Button';
 import { Card } from '../../../components/core/Card';
@@ -9,7 +9,7 @@ import { Avatar } from '../../../components/core/Avatar';
 import { useAuth } from '../../../hooks/auth/useAuth';
 import { useTheme } from '../../../hooks/ui/useTheme';
 import { EnhancedMatchService } from '../../../services/match/enhancedMatchService';
-import { SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '../../../constants/theme';
+import { SPACING, TYPOGRAPHY, BORDERS } from '../../../constants/theme';
 
 type JoinMatchParams = {
   id: string;
@@ -18,6 +18,12 @@ type JoinMatchParams = {
   code?: string;
 }
 
+/**
+ * Join Match Screen
+ * 
+ * Allows users to join an existing match by selecting a player slot.
+ * Supports QR code scanning, deep linking, and manual room code entry.
+ */
 export default function JoinMatchScreen() {
   const { id, player, user: userNameFromLink, code } = useLocalSearchParams<JoinMatchParams>();
   const router = useRouter();
@@ -34,7 +40,14 @@ export default function JoinMatchScreen() {
   // Load match data
   useEffect(() => {
     if (id) {
-      loadMatchData();
+      // Check if this is a UUID or room code
+      if (id.length === 36 && id.includes('-')) {
+        // This is a UUID, load match data normally
+        loadMatchData();
+      } else {
+        // This might be a room code, redirect to the new route
+        router.replace(`/match/join/code/${id}`);
+      }
     }
   }, [id]);
 
@@ -99,10 +112,10 @@ export default function JoinMatchScreen() {
         ];
         
         // If there are participants, update the slots
-        if (result.data.participants && result.data.participants.length > 0) {
+        if (result.data?.participants && result.data.participants.length > 0) {
           const updatedSlots = defaultPlayerSlots.map((slot, index) => {
             // Find participant for this position
-            const participant = result.data.participants.find((p: any) => {
+            const participant = result.data?.participants?.find((p: any) => {
               if (p.team === 'team1' && index < 2) return true;
               if (p.team === 'team2' && index >= 2) return true;
               return false;
@@ -170,7 +183,7 @@ export default function JoinMatchScreen() {
         user.id,
         displayName,
         profile?.avatarUrl,
-        selectedPlayerId // Pass the selected player ID
+        selectedPlayerId || undefined // Pass the selected player ID
       );
 
       if (result.success) {
@@ -283,8 +296,8 @@ export default function JoinMatchScreen() {
                 key={playerSlot.id}
                 style={[
                   styles.playerCard,
-                  isSelected && { borderColor: colors.primary, borderWidth: 2 },
-                  !isAvailable && { opacity: 0.5 }
+                  ...(isSelected ? [{ borderColor: colors.primary, borderWidth: 2 }] : []),
+                  ...(!isAvailable ? [{ opacity: 0.5 }] : [])
                 ]}
                 onPress={() => isAvailable && handlePlayerSelect(playerSlot.id)}
                 disabled={!isAvailable}
@@ -338,8 +351,8 @@ export default function JoinMatchScreen() {
                 key={playerSlot.id}
                 style={[
                   styles.playerCard,
-                  isSelected && { borderColor: colors.primary, borderWidth: 2 },
-                  !isAvailable && { opacity: 0.5 }
+                  ...(isSelected ? [{ borderColor: colors.primary, borderWidth: 2 }] : []),
+                  ...(!isAvailable ? [{ opacity: 0.5 }] : [])
                 ]}
                 onPress={() => isAvailable && handlePlayerSelect(playerSlot.id)}
                 disabled={!isAvailable}
@@ -396,9 +409,9 @@ export default function JoinMatchScreen() {
           <Avatar
             source={profile?.avatarUrl}
             size="large"
-            style={styles.userAvatar}
+            style={styles.userAvatarLarge}
           />
-          <Text style={[styles.userName, { color: colors.text }]}>
+          <Text style={[styles.userNameLarge, { color: colors.text }]}>
             {profile?.username || user?.email || 'Unknown Player'}
           </Text>
           <Text style={[styles.joinDescription, { color: colors.textSecondary }]}>
@@ -490,7 +503,7 @@ export default function JoinMatchScreen() {
               </Text>
             </View>
             <Button
-              onPress={() => signIn.signOut()}
+              onPress={() => router.push('/(auth)/login')}
               variant="secondary"
               size="small"
               style={styles.signOutButton}
@@ -589,12 +602,20 @@ const styles = StyleSheet.create({
   userAvatar: {
     marginRight: SPACING.xs,
   },
+  userAvatarLarge: {
+    marginBottom: SPACING.sm,
+  },
   userDetails: {
     flex: 1,
   },
   userName: {
     fontSize: TYPOGRAPHY.sizes.callout,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  userNameLarge: {
+    fontSize: TYPOGRAPHY.sizes.title3,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textAlign: 'center',
   },
   userStatus: {
     fontSize: TYPOGRAPHY.sizes.footnote,
@@ -708,14 +729,6 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     gap: SPACING.md,
   },
-  userAvatar: {
-    marginBottom: SPACING.sm,
-  },
-  userName: {
-    fontSize: TYPOGRAPHY.sizes.title3,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    textAlign: 'center',
-  },
   joinDescription: {
     fontSize: TYPOGRAPHY.sizes.body,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
@@ -781,13 +794,11 @@ const styles = StyleSheet.create({
   },
   joinButton: {
     width: '100%',
+    marginTop: SPACING.xs,
   },
   backButton: {
     marginTop: SPACING.md,
     alignSelf: 'center',
-  },
-  joinButton: {
-    marginTop: SPACING.xs,
   },
   loadingContainer: {
     flex: 1,

@@ -9,8 +9,10 @@ import { UserRole } from '../types/enums';
 import { LivePlayerStats, LiveMatchData } from '../types/models';
 
 /**
- * Creates default players for empty team slots
- * Ensures every match always has 4 players (2 per team)
+ * Player Defaults and Utilities
+ * 
+ * Handles default player creation, team management, and live match data initialization.
+ * Ensures consistent player structure across the application.
  */
 
 // Default player names that will be used if no custom names are provided

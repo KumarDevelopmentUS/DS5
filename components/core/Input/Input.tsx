@@ -1,8 +1,16 @@
+// components/core/Input/Input.tsx
 import React from 'react';
 import { View, Text, TextInput } from 'react-native';
 import { useTheme } from '../../../hooks/ui/useTheme';
 import { InputProps } from './Input.types';
 import { createStyles } from './Input.styles';
+
+/**
+ * Input Component
+ * 
+ * Form input component with label, error handling, and optional icons.
+ * Supports various input types and validation states.
+ */
 
 export const Input: React.FC<InputProps> = ({
   label,

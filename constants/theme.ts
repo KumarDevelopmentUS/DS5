@@ -1,5 +1,12 @@
 // constants/theme.ts
 
+/**
+ * Theme Constants
+ * 
+ * Apple Human Interface Guidelines compliant color system, typography, spacing, and shadows.
+ * Provides consistent design tokens across the application.
+ */
+
 // Apple Human Interface Guidelines Color System
 export const COLORS = {
   light: {

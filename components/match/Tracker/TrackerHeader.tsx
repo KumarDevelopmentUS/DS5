@@ -17,9 +17,9 @@ import * as Clipboard from 'expo-clipboard';
 
 /**
  * Tracker Header Component
- *
- * Displays match title, status, room code, and QR code
- * Handles sharing and copying functionality
+ * 
+ * Displays match information, room code, QR code, and sharing functionality.
+ * Handles match status display and connection indicators.
  */
 export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
   match,
@@ -37,9 +37,8 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
 
   // Generate shareable URL for QR code
   const generateShareableUrl = (): string => {
-    // Use localhost web URL with room code that can be opened in any browser
-    // This will work reliably across all devices and browsers
-    return `http://localhost:3000/match/join/${match.id}?code=${match.roomCode}`;
+    // Use the new room code-based URL structure for cleaner sharing
+    return `http://localhost:3000/match/join/code/${match.roomCode}`;
   };
 
   // Handle room code copy

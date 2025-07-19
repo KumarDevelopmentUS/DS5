@@ -1,11 +1,12 @@
 // utils/validation.ts
+import { SECURITY_CONFIG, STORAGE_CONFIG, SOCIAL_CONFIG, MATCH_CONFIG } from '../constants/config';
 
-import {
-  SECURITY_CONFIG,
-  STORAGE_CONFIG,
-  SOCIAL_CONFIG,
-  MATCH_CONFIG,
-} from '../constants/config';
+/**
+ * Validation Utilities
+ * 
+ * Comprehensive validation functions for forms, user input, and data integrity.
+ * Provides consistent validation results and input sanitization.
+ */
 
 // Validation result interface for consistent return types
 export interface ValidationResult {

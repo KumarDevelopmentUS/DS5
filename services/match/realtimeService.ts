@@ -1,34 +1,16 @@
 // services/match/realtimeService.ts
-import {
-  RealtimeChannel,
-  RealtimePostgresChangesPayload,
-  RealtimePresenceState,
-} from '@supabase/supabase-js';
+import { RealtimeChannel, RealtimePostgresChangesPayload, RealtimePresenceState } from '@supabase/supabase-js';
 import { ApiError } from '../../types/api';
 import { MatchStatus, PlayType } from '../../types/enums';
-import {
-  EventData,
-  Match,
-  MatchEvent,
-  Player,
-  TeamScore,
-} from '../../types/models';
+import { EventData, Match, MatchEvent, Player, TeamScore } from '../../types/models';
 import { createErrorHandler, logError } from '../../utils/errors';
 import { supabase } from '../database/databaseService';
 
 /**
  * Realtime Service
- *
- * Manages all real-time subscriptions for live match features using Supabase Realtime.
- * Handles score changes, player joins/leaves, chat messages, and presence tracking.
- *
- * Key Features:
- * - Match event subscriptions
- * - Player presence tracking
- * - Real-time score updates
- * - Chat message broadcasting
- * - Connection state management
- * - Automatic reconnection handling
+ * 
+ * Manages real-time subscriptions and broadcasting for live match features.
+ * Handles database change subscriptions, presence tracking, and event broadcasting.
  */
 
 // Type definitions for realtime service

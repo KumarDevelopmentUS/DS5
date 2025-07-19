@@ -19,18 +19,9 @@ import {
 
 /**
  * Authentication Context
- *
- * This context provides authentication state and methods to the entire component tree.
- * It acts as a single source of truth for auth status and eliminates prop drilling.
- *
- * Features:
- * - Real-time auth state monitoring
- * - Indefinite session persistence (until manual logout)
- * - Guest mode support
- * - Loading states for auth operations
- * - Error handling and user feedback
- * - Profile data integration
- * - Convenient auth methods
+ * 
+ * Provides authentication state and methods throughout the application.
+ * Manages user sessions, profiles, and auth operations with real-time state updates.
  */
 
 // Auth context state interface
@@ -76,11 +67,10 @@ interface AuthProviderProps {
 }
 
 /**
- * Authentication Provider Component
- *
- * This component wraps the entire app and provides auth state to all child components.
- * It automatically listens for auth state changes and updates the context accordingly.
- * Sessions persist indefinitely until manual logout.
+ * Authentication Provider
+ * 
+ * Wraps the application and provides authentication state to all child components.
+ * Manages session persistence and real-time auth state updates.
  */
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Core auth state

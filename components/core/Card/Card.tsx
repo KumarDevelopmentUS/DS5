@@ -6,6 +6,13 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { styles } from './Card.styles';
 import { CardProps } from './Card.types';
 
+/**
+ * Card Component
+ * 
+ * Flexible container component with multiple variants and pressable support.
+ * Provides consistent styling and spacing across the application.
+ */
+
 export const Card: React.FC<CardProps> = ({
   children,
   variant = 'default',

@@ -1,15 +1,6 @@
-// components/forms/MatchForm/MatchForm.tsx - UPDATED VERSION
+// components/forms/MatchForm/MatchForm.tsx
 import React, { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { MATCH_SETTINGS } from '../../../constants/game';
 import { PLACEHOLDERS } from '../../../constants/messages';
 import { BORDERS, COLORS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
@@ -44,10 +35,10 @@ interface MatchFormErrors {
 }
 
 /**
- * Enhanced Match Creation Form
- *
- * Now includes all team and player name fields for the tracker system
- * Stores complete match configuration including display names
+ * Match Creation Form
+ * 
+ * Comprehensive form for creating matches with team and player name configuration.
+ * Includes validation, keyboard handling, and real-time error feedback.
  */
 export const MatchForm: React.FC<MatchFormProps> = ({
   onSubmit,

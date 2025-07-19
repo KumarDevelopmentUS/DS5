@@ -1,20 +1,8 @@
 // components/match/Tracker/Tracker.tsx
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  ScrollView,
-  RefreshControl,
-  StyleSheet,
-  Alert,
-  BackHandler,
-  Text,
-} from 'react-native';
+import { View, ScrollView, RefreshControl, StyleSheet, Alert, BackHandler, Text } from 'react-native';
 import { useRouter } from 'expo-router';
-import {
-  TrackerProps,
-  TrackerMatch,
-  TrackerPlayer,
-} from '../../../types/tracker';
+import { TrackerProps, TrackerMatch, TrackerPlayer } from '../../../types/tracker';
 import { TrackerHeader } from './TrackerHeader';
 import { ScoreboardPanel } from './ScoreBoardPanel';
 import { StatsPanel } from './StatsPanel';
@@ -23,31 +11,17 @@ import { Modal } from '../../core/Modal';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuth } from '../../../hooks/auth/useAuth';
 import { useMatch } from '../../../hooks/match/useMatch';
-import {
-  ensureAllPlayers,
-  updatePlayerDisplayNames,
-  convertToTrackerPlayer,
-} from '../../../utils/playerDefaults';
+import { ensureAllPlayers, updatePlayerDisplayNames, convertToTrackerPlayer } from '../../../utils/playerDefaults';
 import { PlaySubmissionData } from '../../../types/tracker';
 import { SPACING } from '../../../constants/theme';
-import {
-  PLAY_TYPES,
-  DEFENSE_OUTCOMES,
-  FIFA_MECHANICS,
-} from '../../../constants/game';
+import { PLAY_TYPES, DEFENSE_OUTCOMES, FIFA_MECHANICS } from '../../../constants/game';
 import { PlayType } from '../../../types/enums';
 
 /**
  * Main Tracker Component
- *
- * Consolidated match tracking interface that combines:
- * - Match header with room code and QR code
- * - Live scoreboard with all 4 players
- * - Play logger for game actions
- * - Live statistics and analytics
- *
- * Supports both portrait and landscape orientations (TODO: landscape)
- * Shows all players including default/unregistered players
+ * 
+ * Consolidated match tracking interface with live scoreboard, play logging, and statistics.
+ * Handles real-time updates and player interactions for live match management.
  */
 export const Tracker: React.FC<TrackerProps> = ({
   matchId,

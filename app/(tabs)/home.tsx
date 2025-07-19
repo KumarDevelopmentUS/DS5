@@ -20,11 +20,10 @@ import { MESSAGES } from '../../constants/messages';
 import { MATCH_ROUTES } from '../../constants/routes';
 
 /**
- * Home Screen - Main Dashboard
- *
- * The main landing screen for all users (authenticated and guests). It acts as a dashboard,
- * presenting a unified hub of competitive activities, including a social feed,
- * active matches, and quick stats. Guests can access most features but are prompted to sign in.
+ * Home Screen
+ * 
+ * Main dashboard for authenticated users and guests with match creation, stats, and activity feed.
+ * Provides unified access to competitive activities and social features.
  */
 const HomeScreen = () => {
   const { user, profile, isAuthenticated, isGuest } = useAuth();

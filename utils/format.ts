@@ -1,6 +1,13 @@
 // utils/format.ts
 
 /**
+ * Formatting Utilities
+ * 
+ * Collection of formatting functions for dates, numbers, text, and user interface elements.
+ * Provides consistent formatting across the application.
+ */
+
+/**
  * Converts a date into a relative time string like "2 hours ago" or "in 5 minutes"
  * @param date - The date to format
  * @param baseDate - Optional base date to compare against (defaults to now)
