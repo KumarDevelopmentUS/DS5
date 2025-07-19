@@ -30,18 +30,9 @@ export const AuthNavigationWrapper: React.FC<AuthNavigationWrapperProps> = ({
     const currentRoute = segments[segments.length - 1]; // Get the last segment (current route)
     const inAuthGroup = authRoutes.includes(currentRoute);
 
-    console.log('Navigation check:', {
-      isAuthenticated,
-      inAuthGroup,
-      currentRoute,
-      segments,
-      initializing,
-    });
-
     // Only redirect authenticated users away from auth routes
     if (isAuthenticated && inAuthGroup) {
       // User is authenticated but still in auth routes, redirect to main app
-      console.log('Redirecting to main app...');
       router.replace('/(tabs)/home');
     }
     

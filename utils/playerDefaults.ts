@@ -414,7 +414,7 @@ export const initializeLiveMatchData = (
     participants: participants.map(p => p.userId),
     playerMap,
     recentPlays: [], // Initialize with empty array
-    roomCode: match.roomCode,
+    roomCode: match.room_code || match.roomCode, // Handle both field names
     status: match.status,
   };
 };

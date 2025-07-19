@@ -29,7 +29,11 @@ import {
 } from '../../../utils/playerDefaults';
 import { PlaySubmissionData } from '../../../types/tracker';
 import { SPACING } from '../../../constants/theme';
-import { PLAY_TYPES, DEFENSE_OUTCOMES, FIFA_MECHANICS } from '../../../constants/game';
+import {
+  PLAY_TYPES,
+  DEFENSE_OUTCOMES,
+  FIFA_MECHANICS,
+} from '../../../constants/game';
 import { PlayType } from '../../../types/enums';
 
 /**
@@ -56,15 +60,22 @@ export const Tracker: React.FC<TrackerProps> = ({
   const [showPlayLogger, setShowPlayLogger] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedAttacker, setSelectedAttacker] = useState<string | null>(null);
-  const [selectedThrowResult, setSelectedThrowResult] = useState<PlayType | null>(null);
+  const [selectedThrowResult, setSelectedThrowResult] =
+    useState<PlayType | null>(null);
   const [selectedDefender, setSelectedDefender] = useState<string | null>(null);
-  const [selectedDefenseResult, setSelectedDefenseResult] = useState<string | null>(null);
-  const [selectedFifaAction, setSelectedFifaAction] = useState<string | null>(null);
+  const [selectedDefenseResult, setSelectedDefenseResult] = useState<
+    string | null
+  >(null);
+  const [selectedFifaAction, setSelectedFifaAction] = useState<string | null>(
+    null
+  );
   const [isRedemption, setIsRedemption] = useState(false);
   // Add state for collapsible sections
   const [showFifaSection, setShowFifaSection] = useState(false);
   const [showRedemptionSection, setShowRedemptionSection] = useState(false);
-  const [redemptionSuccess, setRedemptionSuccess] = useState<boolean | null>(null);
+  const [redemptionSuccess, setRedemptionSuccess] = useState<boolean | null>(
+    null
+  );
 
   // Use the existing useMatch hook
   const {
@@ -82,8 +93,10 @@ export const Tracker: React.FC<TrackerProps> = ({
     undoLastPlay,
     refreshMatch,
     isUserParticipant,
+    canUserControl,
     getPlayerByTeam,
     startMatch, // Add this
+    joinAsHost, // Add this
   } = useMatch(matchId, {
     enableRealtime: true,
     includeStats: true,
@@ -103,12 +116,17 @@ export const Tracker: React.FC<TrackerProps> = ({
             team2: (match.settings as any)?.teamNames?.team2 || 'Team 2',
           },
           playerNames: {
-            player1: (match.settings as any)?.playerNames?.player1 || 'Player 1',
-            player2: (match.settings as any)?.playerNames?.player2 || 'Player 2',
-            player3: (match.settings as any)?.playerNames?.player3 || 'Player 3',
-            player4: (match.settings as any)?.playerNames?.player4 || 'Player 4',
+            player1:
+              (match.settings as any)?.playerNames?.player1 || 'Player 1',
+            player2:
+              (match.settings as any)?.playerNames?.player2 || 'Player 2',
+            player3:
+              (match.settings as any)?.playerNames?.player3 || 'Player 3',
+            player4:
+              (match.settings as any)?.playerNames?.player4 || 'Player 4',
           },
-          trackAdvancedStats: (match.settings as any)?.trackAdvancedStats || true,
+          trackAdvancedStats:
+            (match.settings as any)?.trackAdvancedStats || true,
           enableSpectators: (match.settings as any)?.enableSpectators || true,
         },
         participants: [], // Will be set below
@@ -189,8 +207,14 @@ export const Tracker: React.FC<TrackerProps> = ({
     }
   };
 
-  const getGoodThrows = () => PLAY_TYPES.filter(play => play.category === 'throw' && play.outcome === 'good');
-  const getBadThrows = () => PLAY_TYPES.filter(play => play.category === 'throw' && play.outcome === 'bad');
+  const getGoodThrows = () =>
+    PLAY_TYPES.filter(
+      (play) => play.category === 'throw' && play.outcome === 'good'
+    );
+  const getBadThrows = () =>
+    PLAY_TYPES.filter(
+      (play) => play.category === 'throw' && play.outcome === 'bad'
+    );
   const getDefenseOptions = () => Object.values(DEFENSE_OUTCOMES);
   const getFifaOptions = () => Object.values(FIFA_MECHANICS.ACTIONS);
 
@@ -204,20 +228,37 @@ export const Tracker: React.FC<TrackerProps> = ({
 
     try {
       // Determine if this is a good throw (for streak tracking)
-      const isGoodThrow = getGoodThrows().some(throwType => throwType.id === selectedThrowResult);
-      
+      const isGoodThrow = getGoodThrows().some(
+        (throwType) => throwType.id === selectedThrowResult
+      );
+
       const playData = {
         eventType: selectedThrowResult,
-        team: trackerPlayers.find(p => p.userId === selectedAttacker)?.team || 'team1',
-        defenderIds: selectedDefender && selectedDefender !== 'team' && selectedDefender !== 'na' ? [selectedDefender] : [],
-        defenseType: selectedDefenseResult && selectedDefenseResult !== 'na' ? selectedDefenseResult as PlayType : undefined,
-        fifa: selectedFifaAction && selectedFifaAction !== 'na' ? {
-          kickType: selectedFifaAction as 'good_kick' | 'bad_kick'
-        } : undefined,
-        redemption: isRedemption ? {
-          targetPlayerId: undefined, // Will be determined by the backend
-          success: redemptionSuccess // Add redemption success/failure
-        } : undefined,
+        team:
+          trackerPlayers.find((p) => p.userId === selectedAttacker)?.team ||
+          'team1',
+        defenderIds:
+          selectedDefender &&
+          selectedDefender !== 'team' &&
+          selectedDefender !== 'na'
+            ? [selectedDefender]
+            : [],
+        defenseType:
+          selectedDefenseResult && selectedDefenseResult !== 'na'
+            ? (selectedDefenseResult as PlayType)
+            : undefined,
+        fifa:
+          selectedFifaAction && selectedFifaAction !== 'na'
+            ? {
+                kickType: selectedFifaAction as 'good_kick' | 'bad_kick',
+              }
+            : undefined,
+        redemption: isRedemption
+          ? {
+              targetPlayerId: undefined, // Will be determined by the backend
+              success: redemptionSuccess, // Add redemption success/failure
+            }
+          : undefined,
       };
 
       const success = await submitPlay(playData);
@@ -335,6 +376,9 @@ export const Tracker: React.FC<TrackerProps> = ({
           match={trackerMatch}
           isConnected={isConnected}
           testID={`${testID}-header`}
+          onHostJoin={joinAsHost}
+          isHost={canUserControl()}
+          isUserParticipant={isUserParticipant()}
         />
 
         {/* Scoreboard with all 4 players */}
@@ -362,26 +406,44 @@ export const Tracker: React.FC<TrackerProps> = ({
 
         {/* Play-by-Play Input - only show when match is active */}
         {trackerMatch.status === 'active' && (
-          <View style={[styles.playLoggerContainer, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.playLoggerTitle, { color: colors.primary }]}>Log Play</Text>
-            
+          <View
+            style={[
+              styles.playLoggerContainer,
+              { backgroundColor: colors.surface },
+            ]}
+          >
+            <Text style={[styles.playLoggerTitle, { color: colors.primary }]}>
+              Log Play
+            </Text>
+
             {/* Attacking Player Selection - 4 players side by side */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Attacking Player</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Attacking Player
+              </Text>
               <View style={styles.playerRow}>
                 {trackerPlayers.map((player) => (
                   <Button
                     key={player.userId}
-                    variant={selectedAttacker === player.userId ? 'primary' : 'outline'}
+                    variant={
+                      selectedAttacker === player.userId ? 'primary' : 'outline'
+                    }
                     size="small"
                     onPress={() => setSelectedAttacker(player.userId)}
                     style={styles.playerButton}
                     testID={`attacker-${player.userId}`}
                   >
-                    <Text style={[
-                      { color: selectedAttacker === player.userId ? '#FFFFFF' : colors.primary },
-                      styles.buttonText
-                    ]}>
+                    <Text
+                      style={[
+                        {
+                          color:
+                            selectedAttacker === player.userId
+                              ? '#FFFFFF'
+                              : colors.primary,
+                        },
+                        styles.buttonText,
+                      ]}
+                    >
                       {player.displayName}
                     </Text>
                   </Button>
@@ -391,24 +453,44 @@ export const Tracker: React.FC<TrackerProps> = ({
 
             {/* Throw Result Selection */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Throw Result</Text>
-              
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Throw Result
+              </Text>
+
               {/* Good Throws - without point labels */}
-              <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>Good Throws</Text>
+              <Text
+                style={[
+                  styles.subsectionTitle,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Good Throws
+              </Text>
               <View style={styles.throwGrid}>
                 {getGoodThrows().map((throwType) => (
                   <Button
                     key={throwType.id}
-                    variant={selectedThrowResult === throwType.id ? 'primary' : 'outline'}
+                    variant={
+                      selectedThrowResult === throwType.id
+                        ? 'primary'
+                        : 'outline'
+                    }
                     size="small"
                     onPress={() => setSelectedThrowResult(throwType.id)}
                     style={styles.throwButton}
                     testID={`throw-${throwType.id}`}
                   >
-                    <Text style={[
-                      { color: selectedThrowResult === throwType.id ? '#FFFFFF' : colors.primary },
-                      styles.buttonText
-                    ]}>
+                    <Text
+                      style={[
+                        {
+                          color:
+                            selectedThrowResult === throwType.id
+                              ? '#FFFFFF'
+                              : colors.primary,
+                        },
+                        styles.buttonText,
+                      ]}
+                    >
                       {throwType.name}
                     </Text>
                   </Button>
@@ -416,21 +498,39 @@ export const Tracker: React.FC<TrackerProps> = ({
               </View>
 
               {/* Bad Throws */}
-              <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>Bad Throws</Text>
+              <Text
+                style={[
+                  styles.subsectionTitle,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Bad Throws
+              </Text>
               <View style={styles.throwGrid}>
                 {getBadThrows().map((throwType) => (
                   <Button
                     key={throwType.id}
-                    variant={selectedThrowResult === throwType.id ? 'destructive' : 'outline'}
+                    variant={
+                      selectedThrowResult === throwType.id
+                        ? 'destructive'
+                        : 'outline'
+                    }
                     size="small"
                     onPress={() => setSelectedThrowResult(throwType.id)}
                     style={styles.throwButton}
                     testID={`throw-${throwType.id}`}
                   >
-                    <Text style={[
-                      { color: selectedThrowResult === throwType.id ? '#FFFFFF' : colors.error },
-                      styles.buttonText
-                    ]}>
+                    <Text
+                      style={[
+                        {
+                          color:
+                            selectedThrowResult === throwType.id
+                              ? '#FFFFFF'
+                              : colors.error,
+                        },
+                        styles.buttonText,
+                      ]}
+                    >
                       {throwType.name}
                     </Text>
                   </Button>
@@ -440,24 +540,42 @@ export const Tracker: React.FC<TrackerProps> = ({
 
             {/* Defense Section */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Defense</Text>
-              
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Defense
+              </Text>
+
               {/* Defending Player Selection - 4 players side by side + TEAM + N/A */}
-              <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>Defending Player</Text>
+              <Text
+                style={[
+                  styles.subsectionTitle,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Defending Player
+              </Text>
               <View style={styles.playerRow}>
                 {trackerPlayers.map((player) => (
                   <Button
                     key={player.userId}
-                    variant={selectedDefender === player.userId ? 'primary' : 'outline'}
+                    variant={
+                      selectedDefender === player.userId ? 'primary' : 'outline'
+                    }
                     size="small"
                     onPress={() => setSelectedDefender(player.userId)}
                     style={styles.playerButton}
                     testID={`defender-${player.userId}`}
                   >
-                    <Text style={[
-                      { color: selectedDefender === player.userId ? '#FFFFFF' : colors.primary },
-                      styles.buttonText
-                    ]}>
+                    <Text
+                      style={[
+                        {
+                          color:
+                            selectedDefender === player.userId
+                              ? '#FFFFFF'
+                              : colors.primary,
+                        },
+                        styles.buttonText,
+                      ]}
+                    >
                       {player.displayName}
                     </Text>
                   </Button>
@@ -471,10 +589,17 @@ export const Tracker: React.FC<TrackerProps> = ({
                   style={styles.teamNaButton}
                   testID="defender-team"
                 >
-                  <Text style={[
-                    { color: selectedDefender === 'team' ? '#FFFFFF' : colors.primary },
-                    styles.buttonText
-                  ]}>
+                  <Text
+                    style={[
+                      {
+                        color:
+                          selectedDefender === 'team'
+                            ? '#FFFFFF'
+                            : colors.primary,
+                      },
+                      styles.buttonText,
+                    ]}
+                  >
                     TEAM
                   </Text>
                 </Button>
@@ -485,31 +610,56 @@ export const Tracker: React.FC<TrackerProps> = ({
                   style={styles.teamNaButton}
                   testID="defender-na"
                 >
-                  <Text style={[
-                    { color: selectedDefender === 'na' ? '#FFFFFF' : colors.primary },
-                    styles.buttonText
-                  ]}>
+                  <Text
+                    style={[
+                      {
+                        color:
+                          selectedDefender === 'na'
+                            ? '#FFFFFF'
+                            : colors.primary,
+                      },
+                      styles.buttonText,
+                    ]}
+                  >
                     N/A
                   </Text>
                 </Button>
               </View>
 
               {/* Defense Outcome */}
-              <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>Defense Outcome</Text>
+              <Text
+                style={[
+                  styles.subsectionTitle,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Defense Outcome
+              </Text>
               <View style={styles.defenseGrid}>
                 {getDefenseOptions().map((defense) => (
                   <Button
                     key={defense.id}
-                    variant={selectedDefenseResult === defense.id ? 'primary' : 'outline'}
+                    variant={
+                      selectedDefenseResult === defense.id
+                        ? 'primary'
+                        : 'outline'
+                    }
                     size="small"
                     onPress={() => setSelectedDefenseResult(defense.id)}
                     style={styles.defenseButton}
                     testID={`defense-${defense.id}`}
                   >
-                    <Text style={[
-                      { color: selectedDefenseResult === defense.id ? '#FFFFFF' : colors.primary },
-                      styles.buttonText
-                    ]}>
+                    <Text
+                      style={[
+                        {
+                          color:
+                            selectedDefenseResult === defense.id
+                              ? '#FFFFFF'
+                              : colors.primary,
+                        },
+                        styles.buttonText,
+                      ]}
+                    >
                       {defense.name}
                     </Text>
                   </Button>
@@ -529,42 +679,67 @@ export const Tracker: React.FC<TrackerProps> = ({
                     style={styles.collapsibleHeader}
                     testID="fifa-toggle"
                   >
-                    <Text style={[styles.collapsibleHeaderText, { color: colors.text }]}>
+                    <Text
+                      style={[
+                        styles.collapsibleHeaderText,
+                        { color: colors.text },
+                      ]}
+                    >
                       FIFA Action {showFifaSection ? '▼' : '▶'}
                     </Text>
                   </Button>
-                  
+
                   {showFifaSection && (
                     <View style={styles.collapsibleContent}>
                       <View style={styles.horizontalButtonRow}>
                         {getFifaOptions().map((fifa) => (
                           <Button
                             key={fifa.id}
-                            variant={selectedFifaAction === fifa.id ? 'primary' : 'outline'}
+                            variant={
+                              selectedFifaAction === fifa.id
+                                ? 'primary'
+                                : 'outline'
+                            }
                             size="small"
                             onPress={() => setSelectedFifaAction(fifa.id)}
                             style={styles.horizontalButton}
                             testID={`fifa-${fifa.id}`}
                           >
-                            <Text style={[
-                              { color: selectedFifaAction === fifa.id ? '#FFFFFF' : colors.primary },
-                              styles.buttonText
-                            ]}>
+                            <Text
+                              style={[
+                                {
+                                  color:
+                                    selectedFifaAction === fifa.id
+                                      ? '#FFFFFF'
+                                      : colors.primary,
+                                },
+                                styles.buttonText,
+                              ]}
+                            >
                               {fifa.name}
                             </Text>
                           </Button>
                         ))}
                         <Button
-                          variant={selectedFifaAction === 'na' ? 'primary' : 'outline'}
+                          variant={
+                            selectedFifaAction === 'na' ? 'primary' : 'outline'
+                          }
                           size="small"
                           onPress={() => setSelectedFifaAction('na')}
                           style={styles.horizontalButton}
                           testID="fifa-na"
                         >
-                          <Text style={[
-                            { color: selectedFifaAction === 'na' ? '#FFFFFF' : colors.primary },
-                            styles.buttonText
-                          ]}>
+                          <Text
+                            style={[
+                              {
+                                color:
+                                  selectedFifaAction === 'na'
+                                    ? '#FFFFFF'
+                                    : colors.primary,
+                              },
+                              styles.buttonText,
+                            ]}
+                          >
                             N/A
                           </Text>
                         </Button>
@@ -582,16 +757,23 @@ export const Tracker: React.FC<TrackerProps> = ({
                     style={styles.collapsibleHeader}
                     testID="redemption-toggle"
                   >
-                    <Text style={[styles.collapsibleHeaderText, { color: colors.text }]}>
+                    <Text
+                      style={[
+                        styles.collapsibleHeaderText,
+                        { color: colors.text },
+                      ]}
+                    >
                       Redemption {showRedemptionSection ? '▼' : '▶'}
                     </Text>
                   </Button>
-                  
+
                   {showRedemptionSection && (
                     <View style={styles.collapsibleContent}>
                       <View style={styles.horizontalButtonRow}>
                         <Button
-                          variant={redemptionSuccess === true ? 'primary' : 'outline'}
+                          variant={
+                            redemptionSuccess === true ? 'primary' : 'outline'
+                          }
                           size="small"
                           onPress={() => {
                             setIsRedemption(true);
@@ -600,15 +782,26 @@ export const Tracker: React.FC<TrackerProps> = ({
                           style={styles.horizontalButton}
                           testID="redemption-success"
                         >
-                          <Text style={[
-                            { color: redemptionSuccess === true ? '#FFFFFF' : colors.primary },
-                            styles.buttonText
-                          ]}>
+                          <Text
+                            style={[
+                              {
+                                color:
+                                  redemptionSuccess === true
+                                    ? '#FFFFFF'
+                                    : colors.primary,
+                              },
+                              styles.buttonText,
+                            ]}
+                          >
                             ✓ Success
                           </Text>
                         </Button>
                         <Button
-                          variant={redemptionSuccess === false ? 'destructive' : 'outline'}
+                          variant={
+                            redemptionSuccess === false
+                              ? 'destructive'
+                              : 'outline'
+                          }
                           size="small"
                           onPress={() => {
                             setIsRedemption(true);
@@ -617,10 +810,17 @@ export const Tracker: React.FC<TrackerProps> = ({
                           style={styles.horizontalButton}
                           testID="redemption-failure"
                         >
-                          <Text style={[
-                            { color: redemptionSuccess === false ? '#FFFFFF' : colors.error },
-                            styles.buttonText
-                          ]}>
+                          <Text
+                            style={[
+                              {
+                                color:
+                                  redemptionSuccess === false
+                                    ? '#FFFFFF'
+                                    : colors.error,
+                              },
+                              styles.buttonText,
+                            ]}
+                          >
                             ✗ Failed
                           </Text>
                         </Button>
@@ -634,7 +834,9 @@ export const Tracker: React.FC<TrackerProps> = ({
             {/* Submit Button */}
             <Button
               onPress={handleSubmitPlay}
-              disabled={!selectedAttacker || !selectedThrowResult || isSubmittingPlay}
+              disabled={
+                !selectedAttacker || !selectedThrowResult || isSubmittingPlay
+              }
               loading={isSubmittingPlay}
               style={styles.submitButton}
               testID="submit-play"
@@ -642,19 +844,19 @@ export const Tracker: React.FC<TrackerProps> = ({
               <Text style={styles.buttonText}>Submit Play</Text>
             </Button>
           </View>
-        )}
+          )}
 
-        {/* Undo Button */}
+          {/* Undo Button */}
         {lastFourEvents.length > 0 && isUserParticipant() && (
-          <Button
-            onPress={handleUndo}
-            variant="outline"
-            style={styles.undoButton}
-            testID={`${testID}-undo-button`}
-          >
+            <Button
+              onPress={handleUndo}
+              variant="outline"
+              style={styles.undoButton}
+              testID={`${testID}-undo-button`}
+            >
             <Text>Undo Last Play</Text>
-          </Button>
-        )}
+            </Button>
+          )}
 
         {/* Live Statistics */}
         <StatsPanel
@@ -692,15 +894,15 @@ const styles = StyleSheet.create({
     // Outline button styling from Button component
   },
   playLoggerContainer: {
-    margin: SPACING.md,
-    padding: SPACING.md,
+    margin: SPACING.sm,
+    padding: SPACING.sm,
     borderRadius: 12,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   playLoggerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: 12,
     textAlign: 'center',
   },
   playLoggerSubtitle: {
@@ -709,18 +911,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   section: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   subsectionTitle: {
     fontSize: 14,
     fontWeight: '500',
-    marginTop: 12,
-    marginBottom: 6,
+    marginTop: 8,
+    marginBottom: 4,
   },
   playerGrid: {
     flexDirection: 'row',
@@ -767,7 +969,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   startMatchContainer: {
-    margin: SPACING.md,
+    margin: SPACING.sm,
     alignItems: 'center',
   },
   startMatchButton: {

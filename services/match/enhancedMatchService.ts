@@ -7,6 +7,7 @@ import {
 } from '../../types/tracker';
 import { Match } from '../../types/models';
 import { MatchStatus, UserRole } from '../../types/enums';
+import type { MatchConfig } from '../../types/models';
 import {
   createDefaultMatchSettings,
   createParticipantForDefaultPlayer,
@@ -42,6 +43,60 @@ const handleError = createErrorHandler(
  * Enhanced Match Service Class
  */
 export class EnhancedMatchService {
+  /**
+   * Test function to verify database connectivity and table structure
+   */
+  static async testDatabaseConnection(): Promise<ApiResponse<{ tables: string[]; user: any }>> {
+    try {
+      // Test basic connection
+      const { data: user, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        throw userError;
+      }
+
+      // Test matches table access
+      const { data: matches, error: matchesError } = await supabase
+        .from('matches')
+        .select('id')
+        .limit(1);
+
+      if (matchesError) {
+        throw matchesError;
+      }
+
+      // Test match_participants table access
+      const { data: participants, error: participantsError } = await supabase
+        .from('match_participants')
+        .select('match_id')
+        .limit(1);
+
+      if (participantsError) {
+        throw participantsError;
+      }
+
+      return {
+        data: {
+          tables: ['matches', 'match_participants'],
+          user: user.user,
+        },
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'testDatabaseConnection',
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
   /**
    * Creates a match with enhanced settings and default players
    */
@@ -100,31 +155,13 @@ export class EnhancedMatchService {
 
       console.log('Match created in database:', match.id);
 
-      // Add creator as first participant
-      const creatorParticipant = {
-        match_id: match.id,
-        user_id: creatorId,
-        team: 'team1',
-        role: 'player' as UserRole,
-        is_active: true,
-      };
+      // Don't automatically add creator as participant - they can join manually later
+      console.log('Match created successfully. Creator can join manually.');
 
-      // Insert creator
-      const { error: creatorError } = await supabase
-        .from('match_participants')
-        .insert([creatorParticipant]);
+      console.log('Match created successfully');
 
-      if (creatorError) {
-        console.error('Creator participant error:', creatorError);
-        // Rollback match creation
-        await supabase.from('matches').delete().eq('id', match.id);
-        throw creatorError;
-      }
-
-      console.log('Creator added as participant successfully');
-
-      // Initialize live match data
-      const participants = [creatorParticipant];
+      // Initialize live match data with empty participants (creator will join manually)
+      const participants: any[] = [];
       const liveMatchData = initializeLiveMatchData(match, participants);
 
       // Update match with live match data
@@ -466,6 +503,462 @@ export class EnhancedMatchService {
         matchId,
         position,
         newUserId,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Get match by room code
+   */
+  static async getMatchByRoomCode(roomCode: string): Promise<ApiResponse<Match>> {
+    try {
+      const { data, error } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          participants:match_participants(
+            *,
+            profile:profiles(*)
+          )
+        `)
+        .eq('room_code', roomCode)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data) {
+        return {
+          data: null,
+          error: {
+            message: 'Match not found',
+            code: 'MATCH_NOT_FOUND',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // Transform participants to Player format
+      const participants = data.participants?.map((participant: any) => ({
+        userId: participant.user_id || '',
+        username: participant.profile?.username || participant.display_name || 'Unknown Player',
+        nickname: participant.profile?.nickname,
+        avatarUrl: participant.profile?.avatar_url,
+        team: participant.team || '1',
+        role: UserRole.PLAYER,
+        isActive: true,
+        joinedAt: new Date(participant.created_at || Date.now()),
+      })) || [];
+
+      const transformedMatch: Match = {
+        id: data.id,
+        title: data.title || '',
+        description: data.description || undefined,
+        creatorId: data.creator_id,
+        roomCode: data.room_code,
+        gameType: data.game_type,
+        location: data.location || undefined,
+        isPublic: data.is_public || false,
+        status: (data.status as MatchStatus) || MatchStatus.PENDING,
+        settings: data.settings as MatchConfig,
+        createdAt: data.created_at ? new Date(data.created_at) : new Date(),
+        endedAt: data.ended_at ? new Date(data.ended_at) : undefined,
+        participants,
+      };
+
+      return {
+        data: transformedMatch,
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'getMatchByRoomCode',
+        roomCode,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Refresh match data and update player names
+   * This is called when players link their accounts to update the UI
+   */
+  static async refreshMatchData(matchId: string): Promise<ApiResponse<Match>> {
+    try {
+      const { data, error } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          participants:match_participants(
+            *,
+            profile:profiles(*)
+          )
+        `)
+        .eq('id', matchId)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data) {
+        return {
+          data: null,
+          error: {
+            message: 'Match not found',
+            code: 'MATCH_NOT_FOUND',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // Transform participants to Player format
+      const participants = data.participants?.map((participant: any) => ({
+        userId: participant.user_id || '',
+        username: participant.profile?.username || participant.display_name || 'Unknown Player',
+        nickname: participant.profile?.nickname,
+        avatarUrl: participant.profile?.avatar_url,
+        team: participant.team || '1',
+        role: UserRole.PLAYER,
+        isActive: true,
+        joinedAt: new Date(participant.created_at || Date.now()),
+      })) || [];
+
+      const transformedMatch: Match = {
+        id: data.id,
+        title: data.title || '',
+        description: data.description || undefined,
+        creatorId: data.creator_id,
+        roomCode: data.room_code,
+        gameType: data.game_type,
+        location: data.location || undefined,
+        isPublic: data.is_public || false,
+        status: (data.status as MatchStatus) || MatchStatus.PENDING,
+        settings: data.settings as MatchConfig,
+        createdAt: data.created_at ? new Date(data.created_at) : new Date(),
+        endedAt: data.ended_at ? new Date(data.ended_at) : undefined,
+        participants,
+      };
+
+      return {
+        data: transformedMatch,
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'refreshMatchData',
+        matchId,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Simple join match - just send user info to host's tracker
+   */
+  static async joinMatchSimple(
+    matchId: string,
+    userId: string,
+    displayName: string,
+    avatarUrl?: string,
+    position?: string
+  ): Promise<ApiResponse<{ participant: any }>> {
+    try {
+      console.log('Simple join match:', { matchId, userId, displayName });
+
+      // Get current match data
+      const { data: match, error: matchError } = await supabase
+        .from('matches')
+        .select('live_match_data')
+        .eq('id', matchId)
+        .single();
+
+      if (matchError || !match) {
+        throw new Error('Match not found');
+      }
+
+      // Get or initialize live match data
+      let liveMatchData = match.live_match_data as any;
+      if (!liveMatchData) {
+        liveMatchData = {
+          livePlayerStats: {},
+          liveTeamPenalties: {},
+          matchSetup: {
+            participants: [],
+            playerMap: {},
+          },
+          recentPlays: [],
+          currentScore: { team1: 0, team2: 0 },
+        };
+      }
+
+      // Add user to participants if not already there
+      const existingParticipant = liveMatchData.matchSetup.participants.find(
+        (p: any) => p.userId === userId
+      );
+
+      if (!existingParticipant) {
+        // Use specified position if provided, otherwise find an available slot
+        let slotId: string;
+        if (position) {
+          // Map position to slot ID
+          const positionMap: { [key: string]: string } = {
+            'player1': 'default_1',
+            'player2': 'default_2',
+            'player3': 'default_3',
+            'player4': 'default_4',
+          };
+          slotId = positionMap[position];
+          
+          // Check if this slot is already taken
+          const slotTaken = liveMatchData.matchSetup.participants.find(
+            (p: any) => p.id === slotId
+          );
+          
+          if (slotTaken) {
+            throw new Error(`Position ${position} is already taken`);
+          }
+        } else {
+          // Find an available slot
+          const availableSlots = ['default_1', 'default_2', 'default_3', 'default_4'].filter(
+            slotId => !liveMatchData.matchSetup.participants.find(
+              (p: any) => p.id === slotId
+            )
+          );
+
+          if (availableSlots.length === 0) {
+            throw new Error('No available player slots');
+          }
+          slotId = availableSlots[0];
+        }
+        
+        const team = slotId === 'default_1' || slotId === 'default_2' ? 'team1' : 'team2';
+        
+        const newParticipant = {
+          id: slotId,
+          userId: userId,
+          displayName: displayName,
+          avatarUrl: avatarUrl,
+          team: team,
+          isRegistered: true,
+        };
+
+        liveMatchData.matchSetup.participants.push(newParticipant);
+        liveMatchData.matchSetup.playerMap[userId] = slotId;
+
+        // Update match with new participant
+        const { error: updateError } = await supabase
+          .from('matches')
+          .update({ live_match_data: liveMatchData as any })
+          .eq('id', matchId);
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        console.log('User joined match successfully:', newParticipant);
+      }
+
+      return {
+        data: { participant: existingParticipant || liveMatchData.matchSetup.participants.find((p: any) => p.userId === userId) },
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'joinMatchSimple',
+        matchId,
+        userId,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Link a player to a user account
+   */
+  static async linkPlayerToUser(
+    matchId: string,
+    playerId: string,
+    userId: string,
+    displayName: string
+  ): Promise<ApiResponse<{ participant: any }>> {
+    try {
+      // First, check if the player slot is available
+      const { data: existingParticipant, error: checkError } = await supabase
+        .from('match_participants')
+        .select('*')
+        .eq('id', playerId)
+        .eq('match_id', matchId)
+        .single();
+
+      if (checkError) {
+        throw checkError;
+      }
+
+      if (!existingParticipant) {
+        return {
+          data: null,
+          error: {
+            message: 'Player slot not found',
+            code: 'PLAYER_NOT_FOUND',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      if (existingParticipant.user_id) {
+        return {
+          data: null,
+          error: {
+            message: 'Player slot is already linked to another user',
+            code: 'SLOT_ALREADY_LINKED',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // Update the participant with user information
+      const { data: updatedParticipant, error: updateError } = await supabase
+        .from('match_participants')
+        .update({
+          user_id: userId,
+          display_name: displayName,
+          linked_at: new Date().toISOString(),
+        })
+        .eq('id', playerId)
+        .eq('match_id', matchId)
+        .select('*')
+        .single();
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      return {
+        data: { participant: updatedParticipant },
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'linkPlayerToUser',
+        matchId,
+        playerId,
+        userId,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Get match by ID
+   */
+  static async getMatchById(matchId: string): Promise<ApiResponse<Match>> {
+    try {
+      const { data, error } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          participants:match_participants(
+            *,
+            profile:profiles(*)
+          )
+        `)
+        .eq('id', matchId)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data) {
+        return {
+          data: null,
+          error: {
+            message: 'Match not found',
+            code: 'MATCH_NOT_FOUND',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // Transform participants to Player format
+      const participants = data.participants?.map((participant: any) => ({
+        userId: participant.user_id || '',
+        username: participant.profile?.username || participant.display_name || 'Unknown Player',
+        nickname: participant.profile?.nickname,
+        avatarUrl: participant.profile?.avatar_url,
+        team: participant.team || '1',
+        role: UserRole.PLAYER,
+        isActive: true,
+        joinedAt: new Date(participant.created_at || Date.now()),
+      })) || [];
+
+      const transformedMatch: Match = {
+        id: data.id,
+        title: data.title || '',
+        description: data.description || undefined,
+        creatorId: data.creator_id,
+        roomCode: data.room_code,
+        gameType: data.game_type,
+        location: data.location || undefined,
+        isPublic: data.is_public || false,
+        status: (data.status as MatchStatus) || MatchStatus.PENDING,
+        settings: data.settings as MatchConfig,
+        createdAt: data.created_at ? new Date(data.created_at) : new Date(),
+        endedAt: data.ended_at ? new Date(data.ended_at) : undefined,
+        participants,
+      };
+
+      return {
+        data: transformedMatch,
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'getMatchById',
+        matchId,
       });
       return {
         data: null,

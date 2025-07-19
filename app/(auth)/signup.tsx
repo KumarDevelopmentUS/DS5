@@ -14,21 +14,16 @@ const SignupScreen = () => {
 
   const handleSignup = async (data: AuthFormData) => {
     try {
-      console.log('Starting signup process with data:', data);
       clearError();
 
       // Type guard: Check if this is signup data (has username and nickname)
       if ('username' in data && 'nickname' in data) {
-        console.log('Valid signup data detected, calling signUp...');
         const result = await signUp(data as SignUpData);
 
-        console.log('SignUp result:', result);
-
         if (result.success) {
-          console.log('Signup successful, redirecting to home...');
-          router.replace('/(tabs)/home');
+          // Signup successful - navigation will be handled by AuthContext
+          // No need to manually navigate here
         } else {
-          console.log('Signup failed:', result.error || 'Unknown error');
           // The error should be handled by the useAuth hook and displayed in the form
         }
       } else {

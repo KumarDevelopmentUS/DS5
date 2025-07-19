@@ -26,16 +26,20 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
   isConnected,
   style,
   testID = 'tracker-header',
+  onHostJoin,
+  isHost,
+  isUserParticipant,
 }) => {
   const { colors } = useTheme();
   const [showRoomCode, setShowRoomCode] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
+  const [showHostJoin, setShowHostJoin] = useState(false);
 
   // Generate shareable URL for QR code
   const generateShareableUrl = (): string => {
-    // TODO: Replace with your app's deep link domain
-    const baseUrl = 'https://diestats.app/join/';
-    return `${baseUrl}${match.roomCode}`;
+    // Use localhost web URL with room code that can be opened in any browser
+    // This will work reliably across all devices and browsers
+    return `http://localhost:3000/?code=${match.roomCode}`;
   };
 
   // Handle room code copy
@@ -141,9 +145,64 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
         </View>
       </View>
 
-      {/* Action Buttons */}
+      {/* Match Info, Game Rules, and QR Code - Combined Section */}
+      <View style={styles.infoSection}>
+        {/* Left side: Description and Location */}
+        <View style={styles.leftInfo}>
+          {match.description && (
+            <Text
+              style={[styles.description, { color: colors.textSecondary }]}
+              numberOfLines={2}
+            >
+              {match.description}
+            </Text>
+          )}
+
+          {match.location && (
+            <View style={styles.locationContainer}>
+              <Ionicons name="location" size={16} color={colors.textSecondary} />
+              <Text
+                style={[styles.location, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                {match.location}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Center: Game Rules */}
+        <View style={styles.gameRulesContainer}>
+          <Text style={[styles.gameRulesTitle, { color: colors.text }]}>
+            Game Rules
+          </Text>
+          <View style={styles.gameRulesRow}>
+            <View style={styles.gameRuleItem}>
+              <Ionicons name="trophy" size={16} color={colors.primary} />
+              <Text style={[styles.gameRuleText, { color: colors.textSecondary }]}>
+                First to {match.settings.scoreLimit}
+              </Text>
+            </View>
+            <View style={styles.gameRuleItem}>
+              <Ionicons name="water" size={16} color={colors.primary} />
+              <Text style={[styles.gameRuleText, { color: colors.textSecondary }]}>
+                Sink = {match.settings.sinkPoints} pts
+              </Text>
+            </View>
+            {match.settings.winByTwo && (
+              <View style={styles.gameRuleItem}>
+                <Ionicons name="arrow-up" size={16} color={colors.primary} />
+                <Text style={[styles.gameRuleText, { color: colors.textSecondary }]}>
+                  Win by 2
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+
+      {/* Room Code, QR Code, and Host Join Buttons */}
       <View style={styles.actionsContainer}>
-        {/* Room Code Button */}
         <TouchableOpacity
           style={[
             styles.actionButton,
@@ -158,7 +217,6 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
           </Text>
         </TouchableOpacity>
 
-        {/* QR Code Button */}
         <TouchableOpacity
           style={[
             styles.actionButton,
@@ -168,58 +226,27 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
           testID={`${testID}-qr-code-button`}
         >
           <Ionicons name="qr-code" size={18} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Match Info */}
-      {match.description && (
-        <Text
-          style={[styles.description, { color: colors.textSecondary }]}
-          numberOfLines={2}
-        >
-          {match.description}
-        </Text>
-      )}
-
-      {match.location && (
-        <View style={styles.locationContainer}>
-          <Ionicons name="location" size={16} color={colors.textSecondary} />
-          <Text
-            style={[styles.location, { color: colors.textSecondary }]}
-            numberOfLines={1}
-          >
-            {match.location}
+          <Text style={[styles.actionText, { color: colors.primary }]}>
+            QR Code
           </Text>
-        </View>
-      )}
+        </TouchableOpacity>
 
-      {/* Game Rules */}
-      <View style={styles.gameRulesContainer}>
-        <Text style={[styles.gameRulesTitle, { color: colors.text }]}>
-          Game Rules
-        </Text>
-        <View style={styles.gameRulesRow}>
-          <View style={styles.gameRuleItem}>
-            <Ionicons name="trophy" size={16} color={colors.primary} />
-            <Text style={[styles.gameRuleText, { color: colors.textSecondary }]}>
-              First to {match.settings.scoreLimit}
+        {/* Host Join Button - Only show if user is host and not already a participant */}
+        {isHost && !isUserParticipant && onHostJoin && (
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              { backgroundColor: colors.success + '20' },
+            ]}
+            onPress={() => setShowHostJoin(true)}
+            testID={`${testID}-host-join-button`}
+          >
+            <Ionicons name="person-add" size={18} color={colors.success} />
+            <Text style={[styles.actionText, { color: colors.success }]}>
+              Join Match
             </Text>
-          </View>
-          <View style={styles.gameRuleItem}>
-            <Ionicons name="water" size={16} color={colors.primary} />
-            <Text style={[styles.gameRuleText, { color: colors.textSecondary }]}>
-              Sink = {match.settings.sinkPoints} pts
-            </Text>
-          </View>
-          {match.settings.winByTwo && (
-            <View style={styles.gameRuleItem}>
-              <Ionicons name="arrow-up" size={16} color={colors.primary} />
-              <Text style={[styles.gameRuleText, { color: colors.textSecondary }]}>
-                Win by 2
-              </Text>
-            </View>
-          )}
-        </View>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Room Code Modal */}
@@ -249,7 +276,7 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
           <Text
             style={[styles.qrInstructions, { color: colors.textSecondary }]}
           >
-            Scan this QR code to join the match instantly:
+            Scan this QR code with your camera app to join the match:
           </Text>
 
           <View style={styles.qrContainer}>
@@ -272,6 +299,87 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
           </TouchableOpacity>
         </View>
       </Modal>
+
+      {/* Host Join Modal */}
+      <Modal
+        visible={showHostJoin}
+        onClose={() => setShowHostJoin(false)}
+        title="Join as Player"
+        size="medium"
+        testID={`${testID}-host-join-modal`}
+      >
+        <View style={styles.hostJoinModalContent}>
+          <Text
+            style={[styles.hostJoinInstructions, { color: colors.textSecondary }]}
+          >
+            Select which team and position you'd like to join:
+          </Text>
+
+          <View style={styles.teamSelectionContainer}>
+            {/* Team 1 */}
+            <View style={styles.teamSection}>
+              <Text style={[styles.teamTitle, { color: colors.text }]}>
+                {match.settings.teamNames.team1}
+              </Text>
+              <View style={styles.playerSlots}>
+                <TouchableOpacity
+                  style={[styles.playerSlot, { borderColor: colors.primary }]}
+                  onPress={() => {
+                    onHostJoin?.('team1', 1);
+                    setShowHostJoin(false);
+                  }}
+                >
+                  <Text style={[styles.playerSlotText, { color: colors.primary }]}>
+                    {match.settings.playerNames.player1}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.playerSlot, { borderColor: colors.primary }]}
+                  onPress={() => {
+                    onHostJoin?.('team1', 2);
+                    setShowHostJoin(false);
+                  }}
+                >
+                  <Text style={[styles.playerSlotText, { color: colors.primary }]}>
+                    {match.settings.playerNames.player2}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Team 2 */}
+            <View style={styles.teamSection}>
+              <Text style={[styles.teamTitle, { color: colors.text }]}>
+                {match.settings.teamNames.team2}
+              </Text>
+              <View style={styles.playerSlots}>
+                <TouchableOpacity
+                  style={[styles.playerSlot, { borderColor: colors.primary }]}
+                  onPress={() => {
+                    onHostJoin?.('team2', 3);
+                    setShowHostJoin(false);
+                  }}
+                >
+                  <Text style={[styles.playerSlotText, { color: colors.primary }]}>
+                    {match.settings.playerNames.player3}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.playerSlot, { borderColor: colors.primary }]}
+                  onPress={() => {
+                    onHostJoin?.('team2', 4);
+                    setShowHostJoin(false);
+                  }}
+                >
+                  <Text style={[styles.playerSlotText, { color: colors.primary }]}>
+                    {match.settings.playerNames.player4}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -279,18 +387,20 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
 const styles = StyleSheet.create({
   container: {
     padding: SPACING.md,
-    borderRadius: BORDERS.md,
+    borderRadius: BORDERS.lg,
     marginHorizontal: SPACING.sm,
-    marginVertical: SPACING.xs,
+    marginTop: SPACING.xl * 2,
+    marginBottom: SPACING.xs,
     ...SHADOWS.sm,
   },
   titleSection: {
     marginBottom: SPACING.sm,
   },
   matchTitle: {
-    fontSize: TYPOGRAPHY.sizes.title3,
+    fontSize: TYPOGRAPHY.sizes.title2,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     marginBottom: SPACING.xs,
+    lineHeight: TYPOGRAPHY.sizes.title2 * 1.2,
   },
   statusContainer: {
     flexDirection: 'row',
@@ -316,26 +426,28 @@ const styles = StyleSheet.create({
   actionsContainer: {
     flexDirection: 'row',
     gap: SPACING.sm,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDERS.sm,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDERS.md,
     gap: SPACING.xs,
   },
   actionText: {
-    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontSize: TYPOGRAPHY.sizes.callout,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   description: {
     fontSize: TYPOGRAPHY.sizes.footnote,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginBottom: SPACING.xs,
-    lineHeight: TYPOGRAPHY.sizes.footnote * 1.4,
+    marginBottom: 4,
+    lineHeight: TYPOGRAPHY.sizes.footnote * 1.3,
   },
   locationContainer: {
     flexDirection: 'row',
@@ -347,6 +459,42 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     flex: 1,
   },
+  infoSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.sm,
+  },
+  leftInfo: {
+    flex: 1,
+    marginRight: SPACING.sm,
+  },
+  gameRulesContainer: {
+    flex: 0,
+    minWidth: 120,
+    marginRight: SPACING.sm,
+  },
+  gameRulesTitle: {
+    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    marginBottom: SPACING.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  gameRulesRow: {
+    flexDirection: 'column',
+    gap: 2,
+  },
+  gameRuleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  gameRuleText: {
+    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+
   qrModalContent: {
     alignItems: 'center',
     padding: SPACING.md,
@@ -373,32 +521,49 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.footnote,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
-  gameRulesContainer: {
-    marginTop: SPACING.sm,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)', // Light border
+  roomCodeText: {
+    fontSize: TYPOGRAPHY.sizes.largeTitle,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textAlign: 'center',
+    letterSpacing: 2,
   },
-  gameRulesTitle: {
-    fontSize: TYPOGRAPHY.sizes.footnote,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginBottom: SPACING.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  hostJoinModalContent: {
+    padding: SPACING.md,
   },
-  gameRulesRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.md,
-  },
-  gameRuleItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  gameRuleText: {
-    fontSize: TYPOGRAPHY.sizes.footnote,
+  hostJoinInstructions: {
+    fontSize: TYPOGRAPHY.sizes.body,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+    lineHeight: TYPOGRAPHY.sizes.body * 1.4,
+  },
+  teamSelectionContainer: {
+    gap: SPACING.lg,
+  },
+  teamSection: {
+    gap: SPACING.sm,
+  },
+  teamTitle: {
+    fontSize: TYPOGRAPHY.sizes.headline,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    textAlign: 'center',
+  },
+  playerSlots: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  playerSlot: {
+    flex: 1,
+    borderWidth: 2,
+    borderRadius: BORDERS.md,
+    padding: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playerSlotText: {
+    fontSize: TYPOGRAPHY.sizes.callout,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    textAlign: 'center',
   },
 });
 

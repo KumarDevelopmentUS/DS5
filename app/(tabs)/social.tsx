@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
   View,
+  TouchableOpacity,
 } from 'react-native';
 
 // Layout Components - CHANGED: Using SimpleScreen instead of Screen
@@ -234,108 +235,58 @@ const SocialScreen = () => {
     router.push('/social/friends/find' as any);
   };
 
-  // Render tab buttons
-  const renderTabButtons = () => (
-    <View style={[styles.tabContainer, { backgroundColor: colors.surface }]}>
-      <Pressable
-        style={[
-          styles.tabButton,
-          activeTab === 'communities' && styles.activeTab,
-          activeTab === 'communities' && { borderBottomColor: colors.primary },
-        ]}
-        onPress={() => setActiveTab('communities')}
-      >
-        <Ionicons
-          name="people"
-          size={20}
-          color={
-            activeTab === 'communities' ? colors.primary : colors.textSecondary
-          }
-        />
-        <Text
+  // Render segmented control with Apple-like styling (matching profile screen)
+  const renderSegmentedControl = () => (
+    <View style={[styles.segmentedControl, { backgroundColor: colors.fill }]}>
+      {[
+        { key: 'communities', label: 'Communities' },
+        { key: 'friends', label: 'Friends' },
+        { key: 'trending', label: 'Trending' },
+      ].map((tab) => (
+        <TouchableOpacity
+          key={tab.key}
           style={[
-            styles.tabText,
-            {
-              color:
-                activeTab === 'communities'
-                  ? colors.primary
-                  : colors.textSecondary,
-            },
+            styles.segmentTab,
+            activeTab === tab.key && { backgroundColor: colors.background },
           ]}
+          onPress={() => setActiveTab(tab.key as SocialTab)}
         >
-          Communities
-        </Text>
-      </Pressable>
-
-      <Pressable
-        style={[
-          styles.tabButton,
-          activeTab === 'friends' && styles.activeTab,
-          activeTab === 'friends' && { borderBottomColor: colors.primary },
-        ]}
-        onPress={() => setActiveTab('friends')}
-      >
-        <View style={styles.tabIconContainer}>
-          <Ionicons
-            name="person-add"
-            size={20}
-            color={
-              activeTab === 'friends' ? colors.primary : colors.textSecondary
-            }
-          />
-          {pendingCount > 0 && (
-            <Badge
-              variant="count"
-              count={pendingCount}
-              size="small"
-              color="error"
-              position="absolute"
-              style={styles.tabBadge}
+          <View style={styles.segmentContent}>
+            <Ionicons
+              name={
+                tab.key === 'communities' ? 'people-outline' :
+                tab.key === 'friends' ? 'person-outline' :
+                'trending-up-outline'
+              }
+              size={16}
+              color={
+                activeTab === tab.key ? colors.primary : colors.textSecondary
+              }
+              style={styles.segmentIcon}
             />
-          )}
-        </View>
-        <Text
-          style={[
-            styles.tabText,
-            {
-              color:
-                activeTab === 'friends' ? colors.primary : colors.textSecondary,
-            },
-          ]}
-        >
-          Friends
-        </Text>
-      </Pressable>
-
-      <Pressable
-        style={[
-          styles.tabButton,
-          activeTab === 'trending' && styles.activeTab,
-          activeTab === 'trending' && { borderBottomColor: colors.primary },
-        ]}
-        onPress={() => setActiveTab('trending')}
-      >
-        <Ionicons
-          name="trending-up"
-          size={20}
-          color={
-            activeTab === 'trending' ? colors.primary : colors.textSecondary
-          }
-        />
-        <Text
-          style={[
-            styles.tabText,
-            {
-              color:
-                activeTab === 'trending'
-                  ? colors.primary
-                  : colors.textSecondary,
-            },
-          ]}
-        >
-          Trending
-        </Text>
-      </Pressable>
+            <Text
+              style={[
+                styles.segmentLabel,
+                {
+                  color:
+                    activeTab === tab.key ? colors.primary : colors.textSecondary,
+                },
+              ]}
+            >
+              {tab.label}
+            </Text>
+            {tab.key === 'friends' && pendingCount > 0 && (
+              <Badge
+                variant="count"
+                count={pendingCount}
+                size="small"
+                color="error"
+                style={styles.segmentBadge}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 
@@ -393,7 +344,7 @@ const SocialScreen = () => {
         <EmptyState
           title="No communities found"
           message={`No communities match "${debouncedSearch}"`}
-          icon={<Text style={{ fontSize: 48 }}> community</Text>}
+          icon={<Ionicons name="people-outline" size={48} color={colors.textSecondary} />}
         />
       );
     }
@@ -614,7 +565,7 @@ const SocialScreen = () => {
         <EmptyState
           title="No trending posts"
           message="This feature is coming soon!"
-          icon={<Text style={{ fontSize: 48 }}>🚧</Text>}
+          icon={<Ionicons name="construct-outline" size={48} color={colors.textSecondary} />}
         />
       );
     }
@@ -624,7 +575,7 @@ const SocialScreen = () => {
         <EmptyState
           title="No posts found"
           message={`No posts match "${debouncedSearch}"`}
-          icon={<Text style={{ fontSize: 48 }}>trending</Text>}
+          icon={<Ionicons name="search-outline" size={48} color={colors.textSecondary} />}
         />
       );
     }
@@ -668,7 +619,7 @@ const SocialScreen = () => {
       return (
         <View style={styles.guestContent}>
           <View style={styles.guestIconContainer}>
-            <Ionicons name="people" size={80} color={colors.primary} />
+            <Ionicons name="people-outline" size={40} color={colors.primary} />
           </View>
           <Text style={[styles.guestTitle, { color: colors.text }]}>
             Welcome to Social
@@ -704,7 +655,8 @@ const SocialScreen = () => {
       case 'communities':
         return (
           <ScrollView
-            style={styles.content}
+            style={styles.container}
+            contentContainerStyle={styles.content}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
             }
@@ -717,7 +669,8 @@ const SocialScreen = () => {
       case 'friends':
         return (
           <ScrollView
-            style={styles.content}
+            style={styles.container}
+            contentContainerStyle={styles.content}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
             }
@@ -730,7 +683,8 @@ const SocialScreen = () => {
       case 'trending':
         return (
           <ScrollView
-            style={styles.content}
+            style={styles.container}
+            contentContainerStyle={styles.content}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
             }
@@ -747,13 +701,10 @@ const SocialScreen = () => {
 
   return (
     <SimpleScreen
-      title="Social"
-      subtitle={isAuthenticated ? profile?.username : undefined}
+      showHeader={false}
       style={{ backgroundColor: colors.background }}
-      showHeader={true}
-      contentStyle={{ padding: 0 }} // Remove default padding since we handle it in components
     >
-      {isAuthenticated && renderTabButtons()}
+      {isAuthenticated && renderSegmentedControl()}
       {renderContent()}
     </SimpleScreen>
   );
@@ -761,47 +712,18 @@ const SocialScreen = () => {
 
 // Styles
 const styles = StyleSheet.create({
-  // Tab navigation
-  tabContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
-  },
-  tabButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  activeTab: {
-    // Dynamic color applied in component
-  },
-  tabIconContainer: {
-    position: 'relative',
-  },
-  tabBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -8,
-  },
-  tabText: {
-    fontSize: TYPOGRAPHY.sizes.callout,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginLeft: SPACING.xs,
-  },
 
-  // Search bar
+
+  // Search bar - Apple-like design
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    marginHorizontal: SPACING.md,
-    marginVertical: SPACING.sm,
-    borderRadius: BORDERS.md,
+    marginBottom: SPACING.md,
+    borderRadius: BORDERS.xl,
+    backgroundColor: 'rgba(142, 142, 147, 0.12)',
+    borderWidth: 0,
   },
   searchInput: {
     flex: 1,
@@ -809,9 +731,10 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginLeft: SPACING.sm,
     paddingVertical: SPACING.xs,
+    lineHeight: TYPOGRAPHY.sizes.body * 1.4,
   },
 
-  // Content
+  // Content - Consistent spacing
   scrollContent: {
     paddingBottom: SPACING.xl,
   },
@@ -823,92 +746,132 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: SPACING.lg,
-    paddingHorizontal: SPACING.md,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
   },
   sectionTitle: {
-    fontSize: TYPOGRAPHY.sizes.headline,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    fontSize: TYPOGRAPHY.sizes.title3,
+    fontFamily: TYPOGRAPHY.fontFamily.semibold,
+    lineHeight: TYPOGRAPHY.sizes.title3 * 1.2,
   },
   viewAllText: {
     fontSize: TYPOGRAPHY.sizes.footnote,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
+    color: '#007AFF',
   },
 
-  // Action buttons
+  // Action buttons - Consistent styling
   actionButtons: {
     flexDirection: 'row',
     gap: SPACING.sm,
-    paddingHorizontal: SPACING.md,
     paddingTop: SPACING.md,
   },
   actionButton: {
     flex: 1,
   },
 
-  // Communities
+  // Communities - Apple-like card styling
   communityList: {
     gap: SPACING.sm,
   },
   communityCard: {
     marginBottom: SPACING.xs,
+    borderRadius: BORDERS.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
 
-  // Friends
+  // Friends - Apple-like card styling
   requestsCard: {
-    marginHorizontal: SPACING.md,
     marginTop: SPACING.md,
+    borderRadius: BORDERS.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   requestsContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    padding: SPACING.md,
   },
   requestsInfo: {
     flex: 1,
   },
   requestsTitle: {
     fontSize: TYPOGRAPHY.sizes.callout,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontFamily: TYPOGRAPHY.fontFamily.semibold,
     marginBottom: SPACING.xxs,
+    lineHeight: TYPOGRAPHY.sizes.callout * 1.3,
   },
   requestsCount: {
     fontSize: TYPOGRAPHY.sizes.footnote,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+    lineHeight: TYPOGRAPHY.sizes.footnote * 1.4,
+    opacity: 0.7,
   },
   friendsList: {
     gap: SPACING.sm,
   },
   friendCard: {
     marginBottom: SPACING.xs,
+    borderRadius: BORDERS.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
 
-  // Guest content
+  // Guest content - Apple-like design
   guestContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xxl,
   },
   guestIconContainer: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   guestTitle: {
-    fontSize: TYPOGRAPHY.sizes.large,
+    fontSize: TYPOGRAPHY.sizes.title1,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
+    lineHeight: TYPOGRAPHY.sizes.title1 * 1.2,
+    textAlign: 'center',
   },
   guestMessage: {
     fontSize: TYPOGRAPHY.sizes.body,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     textAlign: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
+    lineHeight: TYPOGRAPHY.sizes.body * 1.4,
+    opacity: 0.6,
   },
   guestButtons: {
     width: '100%',
@@ -917,8 +880,49 @@ const styles = StyleSheet.create({
   guestButton: {
     flex: 1,
   },
-  content: {
+  container: {
     flex: 1,
+  },
+  content: {
+    padding: SPACING.md,
+    paddingBottom: SPACING.xl,
+  },
+
+  // Segmented Control - Apple-like design (matching profile screen)
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: BORDERS.lg,
+    padding: SPACING.xxs,
+    marginBottom: SPACING.lg,
+    marginHorizontal: SPACING.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  segmentTab: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDERS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentIcon: {
+    marginRight: SPACING.xs,
+  },
+  segmentLabel: {
+    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontFamily: TYPOGRAPHY.fontFamily.semibold,
+    lineHeight: TYPOGRAPHY.sizes.footnote * 1.3,
+  },
+  segmentBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
   },
 });
 

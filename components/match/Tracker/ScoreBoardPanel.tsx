@@ -170,15 +170,6 @@ export const ScoreboardPanel: React.FC<ScoreboardPanelProps> = ({
                   ? 'Match Complete'
                   : 'Match Ended'}
         </Text>
-
-        {match.settings.scoreLimit && (
-          <Text
-            style={[styles.scoreLimitText, { color: colors.textSecondary }]}
-          >
-            First to {match.settings.scoreLimit}
-            {match.settings.winByTwo ? ' (Win by 2)' : ''}
-          </Text>
-        )}
       </View>
 
       {/* Teams Container */}
@@ -221,28 +212,19 @@ export const ScoreboardPanel: React.FC<ScoreboardPanelProps> = ({
         )}
       </View>
 
-      {/* Game Settings Info */}
-      <View
-        style={[styles.gameInfo, { backgroundColor: colors.fillSecondary }]}
-      >
-        <Text style={[styles.gameInfoText, { color: colors.textSecondary }]}>
-          Sink: {match.settings.sinkPoints} pts • Score Limit:{' '}
-          {match.settings.scoreLimit}
-          {match.settings.winByTwo ? ' (Win by 2)' : ''}
-        </Text>
-      </View>
+
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    margin: SPACING.sm,
+    margin: SPACING.xs,
   },
   connectionWarning: {
-    padding: SPACING.sm,
+    padding: SPACING.xs,
     borderRadius: BORDERS.sm,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
     alignItems: 'center',
   },
   connectionText: {
@@ -253,9 +235,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: SPACING.sm,
+    padding: SPACING.xs,
     borderRadius: BORDERS.sm,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   statusText: {
     fontSize: TYPOGRAPHY.sizes.callout,
@@ -266,20 +248,20 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   teamsContainer: {
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   teamSection: {
     borderRadius: BORDERS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
+    padding: SPACING.sm,
+    marginBottom: SPACING.xs,
     ...SHADOWS.sm,
   },
   teamHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.md,
-    paddingBottom: SPACING.sm,
+    marginBottom: SPACING.sm,
+    paddingBottom: SPACING.xs,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.1)',
   },
@@ -313,7 +295,7 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: SPACING.sm,
+    marginVertical: SPACING.xs,
   },
   dividerLine: {
     flex: 1,
@@ -330,16 +312,7 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     textTransform: 'uppercase',
   },
-  gameInfo: {
-    padding: SPACING.sm,
-    borderRadius: BORDERS.sm,
-    alignItems: 'center',
-  },
-  gameInfoText: {
-    fontSize: TYPOGRAPHY.sizes.caption1,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    textAlign: 'center',
-  },
+
 });
 
 export default ScoreboardPanel;

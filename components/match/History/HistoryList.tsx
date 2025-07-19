@@ -20,6 +20,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { SPACING } from '../../../constants/theme';
 import { Match } from '../../../types/models';
 import { MATCH_ROUTES } from '../../../constants/routes';
+import { useRouter } from 'expo-router';
 
 export const HistoryList: React.FC<HistoryListProps> = ({
   matches,
@@ -39,6 +40,9 @@ export const HistoryList: React.FC<HistoryListProps> = ({
 }) => {
   const { colors } = useTheme();
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const router = useRouter();
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [showActions, setShowActions] = useState(false);
 
   // Extract unique game types from matches for filter options
   const getAvailableGameTypes = (): string[] => {
@@ -48,18 +52,15 @@ export const HistoryList: React.FC<HistoryListProps> = ({
 
   // Handle match press - navigate to match details
   const handleMatchPress = (match: Match) => {
-    // TODO: Navigate to match details
-    // Example: router.push(MATCH_ROUTES.history(match.id));
-    console.log('Navigate to match:', match.id);
+    // Navigate to match details
+    router.push(`/match/${match.id}`);
   };
 
   // Handle match long press - show action sheet
   const handleMatchLongPress = (match: Match) => {
-    // TODO: Show action sheet with options like:
-    // - View Details
-    // - Share Match
-    // - Export Data
-    console.log('Show actions for match:', match.id);
+    // Show match actions (delete, share, etc.)
+    setSelectedMatch(match);
+    setShowActions(true);
   };
 
   // Handle filter changes
@@ -229,8 +230,8 @@ export const HistoryList: React.FC<HistoryListProps> = ({
         {renderHeader()}
         <HistoryEmpty
           onCreateMatch={() => {
-            // TODO: Navigate to match creation
-            console.log('Navigate to match creation');
+            // Navigate to match creation
+            router.push('/match/create');
           }}
           testID={`${testID}-empty`}
         />

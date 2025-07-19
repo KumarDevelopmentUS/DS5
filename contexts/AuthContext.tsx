@@ -139,10 +139,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const unsubscribe = authService.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
-
+        // Only log critical auth events, not every state change
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+          console.log('Auth state changed:', event, session?.user?.id);
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
+        setLoading(false);
 
         // Load user profile when signed in
         if (session?.user) {

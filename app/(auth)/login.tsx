@@ -22,27 +22,21 @@ export default function LoginScreen() {
   const [serverError, setServerError] = useState<string | null>(null);
 
   const handleLogin = async (data: SignInData) => {
-    console.log('Login attempt started');
     setLoading(true);
     setServerError(null);
 
     try {
       const response = await authService.signIn(data);
-      console.log('Login response:', response);
 
-      if (response.success && response.data) {
-        console.log('Login successful, waiting for navigation...');
-        // Add a timeout to see if navigation happens
-        setTimeout(() => {
-          console.log('Navigation should have happened by now');
-        }, 2000);
+      if (response.success) {
+        // Login successful - navigation will be handled by AuthContext
+        // No need to manually navigate here
       } else {
-        console.log('Login failed:', response.error);
-        setServerError(response.error || 'Login failed. Please try again.');
+        setServerError(response.error || 'Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);
-      setServerError('An unexpected error occurred. Please try again.');
+      setServerError('An unexpected error occurred');
     } finally {
       setLoading(false);
     }

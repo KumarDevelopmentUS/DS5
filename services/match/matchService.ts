@@ -21,7 +21,6 @@ import {
   PaginatedResponse,
   Player,
   PlayerMatchStats,
-  SearchFilters,
   TeamScore,
   MatchFormData,
   LiveMatchData,
@@ -188,24 +187,8 @@ export class MatchService {
         throw matchError || new Error('Failed to create match');
       }
 
-      // Add creator as first participant
-      const participantData: TableInsert<'match_participants'> = {
-        match_id: match.id,
-        user_id: creatorId,
-        team: 'team1',
-        role: 'player',
-        is_active: true,
-      };
-
-      const { error: participantError } = await supabase
-        .from('match_participants')
-        .insert([participantData]);
-
-      if (participantError) {
-        // Rollback match creation if participant add fails
-        await supabase.from('matches').delete().eq('id', match.id);
-        throw participantError;
-      }
+      // Don't automatically add creator as participant - they can join manually later
+      console.log('Match created successfully. Creator can join manually.');
 
       // Transform to Match type
       const transformedMatch: Match = this.transformMatch(match);
@@ -697,6 +680,178 @@ export class MatchService {
       const parsedError = handleError(error, {
         action: 'joinMatchByCode',
         roomCode,
+      });
+      return {
+        data: null,
+        error: parsedError,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Allows the host to manually join a specific player slot
+   *
+   * @param matchId - The match ID
+   * @param userId - The user ID (host)
+   * @param team - The team to join
+   * @param position - The position (1-4) to join
+   * @returns Success status
+   */
+  static async joinAsHost(
+    matchId: string,
+    userId: string,
+    team: string,
+    position: 1 | 2 | 3 | 4
+  ): Promise<MatchServiceResponse<boolean>> {
+    try {
+      // Verify the match exists and user is the creator
+      const { data: match, error: matchError } = await supabase
+        .from('matches')
+        .select('creator_id')
+        .eq('id', matchId)
+        .single();
+
+      if (matchError || !match) {
+        return {
+          data: null,
+          error: {
+            code: ErrorCodes.NOT_FOUND,
+            message: 'Match not found',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      if (match.creator_id !== userId) {
+        return {
+          data: null,
+          error: {
+            code: ErrorCodes.FORBIDDEN,
+            message: 'Only the match creator can join as host',
+          },
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // Check if user is already in match
+      const { data: existingParticipant } = await supabase
+        .from('match_participants')
+        .select('*')
+        .eq('match_id', matchId)
+        .eq('user_id', userId)
+        .single();
+
+      if (existingParticipant) {
+        // Update existing participant to new team
+        const { error: updateError } = await supabase
+          .from('match_participants')
+          .update({ team })
+          .eq('match_id', matchId)
+          .eq('user_id', userId);
+
+        if (updateError) {
+          throw updateError;
+        }
+      } else {
+        // Add new participant
+        const participantData: TableInsert<'match_participants'> = {
+          match_id: matchId,
+          user_id: userId,
+          team,
+          role: 'player',
+          is_active: true,
+        };
+
+        const { error: joinError } = await supabase
+          .from('match_participants')
+          .insert([participantData]);
+
+        if (joinError) {
+          throw joinError;
+        }
+      }
+
+      // Update live match data to store position information
+      const { data: currentLiveData } = await supabase
+        .from('matches')
+        .select('live_match_data')
+        .eq('id', matchId)
+        .single();
+
+      let liveMatchData = currentLiveData?.live_match_data as any;
+      if (!liveMatchData) {
+        liveMatchData = {
+          livePlayerStats: {},
+          liveTeamPenalties: {},
+          matchSetup: {
+            participants: [],
+            playerMap: {},
+          },
+          recentPlays: [],
+          currentScore: { team1: 0, team2: 0 },
+        };
+      }
+
+      // Map position to slot ID
+      const slotId = `default_${position}`;
+      
+      // Update or add participant in live match data
+      const existingParticipantIndex = liveMatchData.matchSetup.participants.findIndex(
+        (p: any) => p.userId === userId
+      );
+
+      if (existingParticipantIndex >= 0) {
+        // Update existing participant
+        liveMatchData.matchSetup.participants[existingParticipantIndex] = {
+          ...liveMatchData.matchSetup.participants[existingParticipantIndex],
+          id: slotId,
+          team,
+        };
+      } else {
+        // Add new participant
+        const newParticipant = {
+          id: slotId,
+          userId: userId,
+          displayName: 'Host Player', // Will be updated with actual name
+          team,
+          isRegistered: true,
+        };
+        liveMatchData.matchSetup.participants.push(newParticipant);
+      }
+
+      // Update player map
+      liveMatchData.matchSetup.playerMap[userId] = slotId;
+
+      // Save updated live match data
+      const { error: liveDataError } = await supabase
+        .from('matches')
+        .update({ live_match_data: liveMatchData as any })
+        .eq('id', matchId);
+
+      if (liveDataError) {
+        throw liveDataError;
+      }
+
+      // Clear cache
+      await this.clearMatchCache(matchId);
+
+      return {
+        data: true,
+        error: null,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const parsedError = handleError(error, {
+        action: 'joinAsHost',
+        matchId,
+        userId,
+        team,
+        position,
       });
       return {
         data: null,

@@ -458,28 +458,35 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING.lg,
+    padding: SPACING.xl,
   },
   loadingText: {
     marginTop: SPACING.md,
     fontSize: TYPOGRAPHY.sizes.body,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+    lineHeight: TYPOGRAPHY.sizes.body * 1.4,
+    opacity: 0.7,
   },
   errorText: {
     fontSize: TYPOGRAPHY.sizes.body,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     textAlign: 'center',
+    lineHeight: TYPOGRAPHY.sizes.body * 1.4,
+    opacity: 0.7,
   },
+  
+  // Header - Clean, centered design
   headerContainer: {
     alignItems: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
+    paddingHorizontal: SPACING.md,
   },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
   },
   headerStats: {
     flexDirection: 'row',
@@ -488,82 +495,73 @@ const styles = StyleSheet.create({
   },
   headerStatItem: {
     alignItems: 'center',
+    paddingHorizontal: SPACING.sm,
   },
   headerStatValue: {
-    fontSize: TYPOGRAPHY.sizes.title3,
+    fontSize: TYPOGRAPHY.sizes.title2,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+    lineHeight: TYPOGRAPHY.sizes.title2 * 1.2,
   },
   headerStatLabel: {
     fontSize: TYPOGRAPHY.sizes.caption1,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginTop: SPACING.xxs,
+    marginTop: SPACING.xs,
+    lineHeight: TYPOGRAPHY.sizes.caption1 * 1.3,
+    opacity: 0.7,
   },
   username: {
-    fontSize: TYPOGRAPHY.sizes.title1,
+    fontSize: TYPOGRAPHY.sizes.largeTitle,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+    lineHeight: TYPOGRAPHY.sizes.largeTitle * 1.1,
+    marginBottom: SPACING.xs,
   },
   userHandle: {
     fontSize: TYPOGRAPHY.sizes.body,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
+    lineHeight: TYPOGRAPHY.sizes.body * 1.4,
+    opacity: 0.7,
   },
   headerActions: {
     flexDirection: 'row',
     width: '100%',
+    gap: SPACING.sm,
   },
+  
+  // Segmented Control - Clean, minimal design
   segmentedControl: {
     flexDirection: 'row',
-    borderRadius: BORDERS.md,
+    borderRadius: BORDERS.lg,
     padding: SPACING.xxs,
     marginBottom: SPACING.lg,
+    marginHorizontal: SPACING.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
   },
   segmentTab: {
     flex: 1,
     paddingVertical: SPACING.sm,
-    borderRadius: BORDERS.sm,
+    borderRadius: BORDERS.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   segmentLabel: {
     fontSize: TYPOGRAPHY.sizes.footnote,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    fontFamily: TYPOGRAPHY.fontFamily.semibold,
+    lineHeight: TYPOGRAPHY.sizes.footnote * 1.3,
   },
+  
+  // Content sections - Consistent spacing
   contentContainer: {
     gap: SPACING.md,
-  },
-  guestContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.lg,
-  },
-  guestIconContainer: {
-    marginBottom: SPACING.md,
-  },
-  guestTitle: {
-    fontSize: TYPOGRAPHY.sizes.title2,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: SPACING.xs,
-  },
-  guestMessage: {
-    fontSize: TYPOGRAPHY.sizes.body,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    textAlign: 'center',
-    marginBottom: SPACING.lg,
-  },
-  guestButtons: {
-    width: '100%',
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  guestButton: {
-    flex: 1,
   },
   content: {
     flex: 1,
   },
   overviewContent: {
-    gap: SPACING.md,
+    gap: SPACING.lg,
+    paddingHorizontal: SPACING.md,
   },
   statsContent: {
     padding: SPACING.md,
@@ -572,6 +570,40 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
   },
   statsCards: {
-    gap: SPACING.md,
+    gap: SPACING.lg,
+  },
+  
+  // Guest content - Clean, centered design
+  guestContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  guestIconContainer: {
+    marginBottom: SPACING.xl,
+  },
+  guestTitle: {
+    fontSize: TYPOGRAPHY.sizes.largeTitle,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    marginBottom: SPACING.md,
+    lineHeight: TYPOGRAPHY.sizes.largeTitle * 1.1,
+    textAlign: 'center',
+  },
+  guestMessage: {
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'center',
+    marginBottom: SPACING.xl,
+    lineHeight: TYPOGRAPHY.sizes.body * 1.4,
+    opacity: 0.7,
+  },
+  guestButtons: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  guestButton: {
+    flex: 1,
   },
 });

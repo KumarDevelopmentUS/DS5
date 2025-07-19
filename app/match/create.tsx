@@ -93,8 +93,8 @@ export default function CreateMatchScreen() {
       setFormData(data);
 
       try {
-        console.log('Creating match with enhanced data:', data);
-
+        console.log('Starting match creation for user:', user.id);
+        
         // Prepare enhanced match data for the service
         const createMatchData = {
           title: data.title.trim(),
@@ -123,22 +123,17 @@ export default function CreateMatchScreen() {
           }),
         };
 
-        console.log('Prepared match data:', createMatchData);
+        console.log('Calling EnhancedMatchService.createMatch with data:', createMatchData);
 
-        // Create the match using the service
         const result = await EnhancedMatchService.createMatch(
           createMatchData,
           user.id
         );
 
-        if (result.success && result.data) {
-          console.log('Match created successfully:', {
-            id: result.data.id,
-            roomCode: result.data.roomCode,
-            title: result.data.title,
-            settings: result.data.settings,
-          });
+        console.log('Match creation result:', result);
 
+        if (result.success && result.data) {
+          console.log('Match created successfully, navigating to:', result.data.id);
           // Navigate to the new tracker interface
           router.replace(`/match/${result.data.id}` as any);
         } else {
@@ -148,7 +143,7 @@ export default function CreateMatchScreen() {
           );
         }
       } catch (error) {
-        console.error('Error in handleCreateMatch:', error);
+        console.error('Unexpected error in match creation:', error);
         setError('An unexpected error occurred. Please try again.');
       } finally {
         setIsCreating(false);

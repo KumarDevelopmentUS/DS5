@@ -15,7 +15,7 @@ import { Button } from '../../components/core/Button';
 import { Card } from '../../components/core/Card';
 import { CreationModal } from '../../components/forms/CreationModal';
 import { useTheme } from '../../contexts/ThemeContext';
-import { SPACING, TYPOGRAPHY, BORDERS } from '../../constants/theme';
+import { SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '../../constants/theme';
 import { MESSAGES } from '../../constants/messages';
 import { MATCH_ROUTES } from '../../constants/routes';
 
@@ -426,40 +426,47 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xl,
   },
 
-  // Header
+  // Header - Clean, minimal design
   header: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
   },
   welcomeSection: {
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
   },
   welcomeText: {
     fontSize: TYPOGRAPHY.sizes.body,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+    lineHeight: TYPOGRAPHY.sizes.body * 1.4,
   },
   userNameText: {
-    fontSize: TYPOGRAPHY.sizes.title2,
+    fontSize: TYPOGRAPHY.sizes.largeTitle,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     marginTop: SPACING.xs,
+    lineHeight: TYPOGRAPHY.sizes.largeTitle * 1.1,
   },
   guestText: {
-    fontSize: TYPOGRAPHY.sizes.caption1,
+    fontSize: TYPOGRAPHY.sizes.footnote,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginTop: SPACING.xs,
+    marginTop: SPACING.sm,
+    lineHeight: TYPOGRAPHY.sizes.footnote * 1.4,
+    opacity: 0.7,
   },
   headerActions: {
     flexDirection: 'row',
     gap: SPACING.sm,
+    marginTop: SPACING.md,
   },
   authButtons: {
     flexDirection: 'column',
-    gap: SPACING.md,
+    gap: SPACING.sm,
+    width: '100%',
   },
   authButton: {
     flex: 1,
   },
   guestCreateButton: {
     flex: 1,
+    marginTop: SPACING.xs,
   },
   createButton: {
     flex: 1,
@@ -468,70 +475,87 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // Sections
+  // Sections - Consistent card styling
   sectionCard: {
     marginBottom: SPACING.lg,
+    borderRadius: BORDERS.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    ...SHADOWS.sm,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
   },
   sectionTitle: {
-    fontSize: TYPOGRAPHY.sizes.headline,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.sizes.title2,
+    fontFamily: TYPOGRAPHY.fontFamily.semibold,
+    lineHeight: TYPOGRAPHY.sizes.title2 * 1.2,
   },
   sectionAction: {
     fontSize: TYPOGRAPHY.sizes.footnote,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
+    color: '#007AFF',
   },
 
-  // Stats
+  // Stats - Clean grid layout
   statsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
   },
   statItem: {
     alignItems: 'center',
     flex: 1,
+    paddingVertical: SPACING.sm,
   },
   statValue: {
-    fontSize: TYPOGRAPHY.sizes.title2,
+    fontSize: TYPOGRAPHY.sizes.title1,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     marginBottom: SPACING.xs,
+    lineHeight: TYPOGRAPHY.sizes.title1 * 1.1,
   },
   statLabel: {
     fontSize: TYPOGRAPHY.sizes.caption1,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     textAlign: 'center',
+    lineHeight: TYPOGRAPHY.sizes.caption1 * 1.3,
+    opacity: 0.7,
   },
 
-  // Matches
+  // Matches - Clean list styling
   matchesList: {
     gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
   },
   matchCard: {
     padding: SPACING.md,
     borderRadius: BORDERS.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
+    borderColor: 'rgba(0, 0, 0, 0.05)',
   },
   matchHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
   matchTitle: {
     fontSize: TYPOGRAPHY.sizes.callout,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontFamily: TYPOGRAPHY.fontFamily.semibold,
     flex: 1,
+    lineHeight: TYPOGRAPHY.sizes.callout * 1.3,
   },
   statusBadge: {
-    paddingHorizontal: SPACING.xs,
-    paddingVertical: SPACING.xxs,
-    borderRadius: BORDERS.sm,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDERS.full,
   },
   statusText: {
     fontSize: TYPOGRAPHY.sizes.caption2,
@@ -539,33 +563,42 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   matchDetails: {
-    gap: SPACING.xxs,
+    gap: SPACING.xs,
   },
   matchInfo: {
     fontSize: TYPOGRAPHY.sizes.footnote,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+    lineHeight: TYPOGRAPHY.sizes.footnote * 1.4,
+    opacity: 0.8,
   },
   matchScore: {
     fontSize: TYPOGRAPHY.sizes.footnote,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
+    lineHeight: TYPOGRAPHY.sizes.footnote * 1.4,
   },
   matchTime: {
     fontSize: TYPOGRAPHY.sizes.footnote,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+    lineHeight: TYPOGRAPHY.sizes.footnote * 1.4,
+    opacity: 0.6,
   },
 
-  // Activity
+  // Activity - Clean list styling
   activityList: {
     gap: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
   },
   activityItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    paddingVertical: SPACING.xs,
   },
   activityIcon: {
-    fontSize: 24,
+    fontSize: 20,
     marginRight: SPACING.md,
     marginTop: SPACING.xxs,
+    opacity: 0.8,
   },
   activityContent: {
     flex: 1,
@@ -574,32 +607,41 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.callout,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     marginBottom: SPACING.xxs,
+    lineHeight: TYPOGRAPHY.sizes.callout * 1.3,
   },
   activitySubtitle: {
     fontSize: TYPOGRAPHY.sizes.footnote,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginBottom: SPACING.xxs,
+    lineHeight: TYPOGRAPHY.sizes.footnote * 1.4,
+    opacity: 0.7,
   },
   activityTime: {
     fontSize: TYPOGRAPHY.sizes.caption1,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+    lineHeight: TYPOGRAPHY.sizes.caption1 * 1.3,
+    opacity: 0.5,
   },
 
-  // Empty state
+  // Empty state - Clean, centered design
   emptyState: {
     alignItems: 'center',
-    padding: SPACING.lg,
+    padding: SPACING.xl,
+    paddingVertical: SPACING.xxl,
   },
   emptyText: {
-    fontSize: TYPOGRAPHY.sizes.body,
+    fontSize: TYPOGRAPHY.sizes.title3,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     textAlign: 'center',
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.sm,
+    lineHeight: TYPOGRAPHY.sizes.title3 * 1.3,
   },
   emptySubtext: {
-    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontSize: TYPOGRAPHY.sizes.body,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     textAlign: 'center',
+    lineHeight: TYPOGRAPHY.sizes.body * 1.4,
+    opacity: 0.7,
   },
 });
 

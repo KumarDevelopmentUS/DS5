@@ -356,7 +356,7 @@ export const useFriends = ({
     return () => {
       supabase.removeChannel(friendsChannel);
     };
-  }, [user?.id, enableRealtime, refetchFriends]);
+  }, [user?.id, enableRealtime]); // Removed refetchFriends from dependencies
 
   // Helper functions
   const searchForUsers = useCallback((query: string) => {

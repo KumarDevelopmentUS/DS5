@@ -1,5 +1,5 @@
 // hooks/match/useMatch.ts
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Match,
@@ -8,6 +8,7 @@ import {
   PlayerMatchStats,
   LiveMatchData,
   LivePlayerStats,
+  MatchEvent,
 } from '../../types/models';
 import { MatchStatus, PlayType } from '../../types/enums';
 import { ApiError, ApiResponse } from '../../types/api';
@@ -95,6 +96,7 @@ export interface UseMatchActions {
   // Player management
   kickPlayer: (playerId: string) => Promise<boolean>;
   changePlayerTeam: (playerId: string, newTeam: string) => Promise<boolean>;
+  joinAsHost: (team: string, position: 1 | 2 | 3 | 4) => Promise<boolean>;
 
   // Real-time management
   reconnect: () => Promise<void>;
@@ -259,9 +261,111 @@ export const useMatch = (
     },
   });
 
+  // Host join mutation
+  const hostJoinMutation = useMutation({
+    mutationFn: async ({ team, position }: { team: string; position: 1 | 2 | 3 | 4 }) => {
+      if (!user?.id) {
+        throw new Error('Must be logged in to join as host');
+      }
+      const result = await matchService.joinAsHost(matchId, user.id, team, position);
+      if (!result.success || !result.data) {
+        throw new Error(result.error?.message || 'Failed to join as host');
+      }
+      return result.data;
+    },
+    onSuccess: () => {
+      // Refresh match data to get updated participants
+      refetchMatch();
+      refetchLiveData();
+    },
+    onError: (error) => {
+      const parsedError = handleError(error, {
+        action: 'joinAsHost',
+        matchId,
+      });
+      onError?.(parsedError);
+    },
+  });
+
   // ============================================
   // REAL-TIME SUBSCRIPTION
   // ============================================
+
+  // Memoize callbacks to prevent unnecessary re-subscriptions
+  const realtimeCallbacks = useMemo<MatchSubscriptionCallbacks>(() => ({
+    onMatchUpdate: (updates: Partial<Match>) => {
+      console.log('Realtime match update received:', updates);
+      // Update match data in query cache
+      queryClient.setQueryData(
+        ['match', matchId, 'details'],
+        (oldMatch: Match | undefined) =>
+          oldMatch ? { ...oldMatch, ...updates } : oldMatch
+      );
+      setLastUpdated(new Date());
+    },
+
+    onStatusChange: (status: MatchStatus) => {
+      // Update match status
+      queryClient.setQueryData(
+        ['match', matchId, 'details'],
+        (oldMatch: Match | undefined) =>
+          oldMatch ? { ...oldMatch, status } : oldMatch
+      );
+    },
+
+    onPlayerJoin: (player: Player) => {
+      setParticipants((prev) => {
+        const exists = prev.some((p) => p.userId === player.userId);
+        return exists ? prev : [...prev, player];
+      });
+    },
+
+    onPlayerLeave: (playerId: string) => {
+      setParticipants((prev) =>
+        prev.filter((p) => p.userId !== playerId)
+      );
+      setPresentPlayers((prev) => prev.filter((id) => id !== playerId));
+    },
+
+    onNewEvent: (event: MatchEvent) => {
+      console.log('Realtime new event received:', event);
+      // Update score if applicable
+      if (event.eventData.points && event.team) {
+        setCurrentScore((prev) => ({
+          ...prev,
+          [event.team!]:
+            (prev[event.team!] || 0) + event.eventData.points!,
+        }));
+      }
+
+      setLastUpdated(new Date());
+    },
+
+    onScoreUpdate: (score: TeamScore) => {
+      setCurrentScore(score);
+      setLastUpdated(new Date());
+    },
+
+    onPresenceSync: (presentUserIds: string[]) => {
+      if (trackPresence) {
+        setPresentPlayers(presentUserIds);
+      }
+    },
+
+    onError: (error: ApiError) => {
+      setConnectionError(error);
+      setIsConnected(false);
+      onError?.(error);
+    },
+
+    onReconnect: () => {
+      setConnectionError(null);
+      setIsConnected(true);
+
+      // Refresh data after reconnection
+      refetchMatch();
+    },
+  }), [matchId, trackPresence, onError, refetchMatch, queryClient]);
 
   useEffect(() => {
     if (!enableRealtime || !matchId || !user?.id || !profile) {
@@ -272,91 +376,12 @@ export const useMatch = (
       try {
         setConnectionError(null);
 
-        const callbacks: MatchSubscriptionCallbacks = {
-          onMatchUpdate: (updates) => {
-            // Update match data in query cache
-            queryClient.setQueryData(
-              ['match', matchId, 'details'],
-              (oldMatch: Match | undefined) =>
-                oldMatch ? { ...oldMatch, ...updates } : oldMatch
-            );
-            setLastUpdated(new Date());
-          },
-
-          onStatusChange: (status) => {
-            // Update match status
-            queryClient.setQueryData(
-              ['match', matchId, 'details'],
-              (oldMatch: Match | undefined) =>
-                oldMatch ? { ...oldMatch, status } : oldMatch
-            );
-          },
-
-          onPlayerJoin: (player) => {
-            setParticipants((prev) => {
-              const exists = prev.some((p) => p.userId === player.userId);
-              return exists ? prev : [...prev, player];
-            });
-          },
-
-          onPlayerLeave: (playerId) => {
-            setParticipants((prev) =>
-              prev.filter((p) => p.userId !== playerId)
-            );
-            setPresentPlayers((prev) => prev.filter((id) => id !== playerId));
-          },
-
-          onNewEvent: (event) => {
-            // Add new event
-            // setEvents((prev) => { // This line is removed as per the new_code
-            //   const exists = prev.some((e) => e.id === event.id);
-            //   return exists ? prev : [...prev, event];
-            // });
-
-            // Update score if applicable
-            if (event.eventData.points && event.team) {
-              setCurrentScore((prev) => ({
-                ...prev,
-                [event.team!]:
-                  (prev[event.team!] || 0) + event.eventData.points!,
-              }));
-            }
-
-            setLastUpdated(new Date());
-          },
-
-          onScoreUpdate: (score) => {
-            setCurrentScore(score);
-            setLastUpdated(new Date());
-          },
-
-          onPresenceSync: (presentUserIds) => {
-            if (trackPresence) {
-              setPresentPlayers(presentUserIds);
-            }
-          },
-
-          onError: (error) => {
-            setConnectionError(error);
-            setIsConnected(false);
-            onError?.(error);
-          },
-
-          onReconnect: () => {
-            setConnectionError(null);
-            setIsConnected(true);
-
-            // Refresh data after reconnection
-            refetchMatch();
-          },
-        };
-
         // Get user's team for presence tracking
         const userParticipant = participants.find((p) => p.userId === user.id);
 
         const unsubscribe = await realtimeService.subscribeToMatch(
           matchId,
-          callbacks,
+          realtimeCallbacks,
           user.id,
           {
             username: profile.username,
@@ -388,7 +413,7 @@ export const useMatch = (
       }
       setIsConnected(false);
     };
-  }, [enableRealtime, matchId, user?.id, profile?.username, trackPresence]);
+  }, [enableRealtime, matchId, user?.id, profile?.id, realtimeCallbacks]); // Only stable dependencies
 
   // ============================================
   // DATA SYNCHRONIZATION
@@ -657,6 +682,18 @@ export const useMatch = (
     [currentScore]
   );
 
+  const joinAsHost = useCallback(
+    async (team: string, position: 1 | 2 | 3 | 4): Promise<boolean> => {
+      try {
+        await hostJoinMutation.mutateAsync({ team, position });
+        return true;
+      } catch (error) {
+        return false;
+      }
+    },
+    [hostJoinMutation]
+  );
+
   // ============================================
   // RETURN HOOK INTERFACE
   // ============================================
@@ -687,6 +724,7 @@ export const useMatch = (
     endMatch,
     kickPlayer,
     changePlayerTeam,
+    joinAsHost,
     reconnect,
     disconnect,
     refreshMatch,

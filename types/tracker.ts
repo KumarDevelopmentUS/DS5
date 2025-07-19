@@ -65,6 +65,9 @@ export interface TrackerHeaderProps {
   isConnected: boolean;
   style?: ViewStyle;
   testID?: string;
+  onHostJoin?: (team: string, position: 1 | 2 | 3 | 4) => Promise<boolean>;
+  isHost?: boolean;
+  isUserParticipant?: boolean;
 }
 
 // Scoreboard panel props

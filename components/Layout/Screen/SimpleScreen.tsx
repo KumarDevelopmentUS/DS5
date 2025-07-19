@@ -1,4 +1,4 @@
-// components/Layout/Screen/SimpleScreen.tsx - DEBUG VERSION
+// components/Layout/Screen/SimpleScreen.tsx
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,27 +25,6 @@ export const SimpleScreen: React.FC<SimpleScreenProps> = ({
   showHeader = true,
   testID,
 }) => {
-  console.log('SimpleScreen props:', { title, subtitle, showHeader, testID });
-  console.log('SimpleScreen children type:', typeof children);
-
-  // Deep inspection of children
-  if (Array.isArray(children)) {
-    console.log('SimpleScreen children array length:', children.length);
-    children.forEach((child, index) => {
-      console.log(`Child ${index}:`, {
-        type: typeof child,
-        isString: typeof child === 'string',
-        value: typeof child === 'string' ? child : 'not a string',
-      });
-    });
-  } else {
-    console.log('SimpleScreen single child:', {
-      type: typeof children,
-      isString: typeof children === 'string',
-      value: typeof children === 'string' ? children : 'not a string',
-    });
-  }
-
   // Add safety check for children
   if (typeof children === 'string') {
     console.error(

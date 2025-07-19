@@ -75,6 +75,7 @@ class RealtimeServiceClass {
   private channels: Map<string, RealtimeChannel> = new Map();
   private presenceData: Map<string, PresenceData[]> = new Map();
   private reconnectTimeouts: Map<string, NodeJS.Timeout | number> = new Map();
+  private subscriptionCounts: Map<string, number> = new Map(); // Track subscription count per match
   private errorHandler = createErrorHandler(
     'RealtimeService',
     'realtime_operations'
@@ -96,6 +97,25 @@ class RealtimeServiceClass {
     userData?: { username: string; avatarUrl?: string; team?: string }
   ): Promise<() => void> {
     try {
+      // Check if already subscribed to this match
+      const currentCount = this.subscriptionCounts.get(matchId) || 0;
+      if (currentCount > 0) {
+        // Already subscribed, just increment count and return existing unsubscribe
+        this.subscriptionCounts.set(matchId, currentCount + 1);
+        
+        // Return a no-op unsubscribe for this specific subscription
+        return () => {
+          const newCount = this.subscriptionCounts.get(matchId) || 0;
+          if (newCount > 1) {
+            this.subscriptionCounts.set(matchId, newCount - 1);
+          } else {
+            // Last subscription, actually unsubscribe
+            this.subscriptionCounts.delete(matchId);
+            this.unsubscribeFromMatch(matchId);
+          }
+        };
+      }
+
       // Clean up any existing subscription
       await this.unsubscribeFromMatch(matchId);
 
@@ -116,6 +136,7 @@ class RealtimeServiceClass {
 
       // Store channel reference
       this.channels.set(matchId, channel);
+      this.subscriptionCounts.set(matchId, 1);
 
       // Subscribe to database changes for matches table
       channel.on(
@@ -127,6 +148,7 @@ class RealtimeServiceClass {
           filter: `id=eq.${matchId}`,
         },
         (payload: RealtimePostgresChangesPayload<any>) => {
+          console.log('Match change received:', payload);
           this.handleMatchChange(payload, callbacks);
         }
       );
@@ -141,6 +163,7 @@ class RealtimeServiceClass {
           filter: `match_id=eq.${matchId}`,
         },
         (payload: RealtimePostgresChangesPayload<any>) => {
+          console.log('Match event received:', payload);
           this.handleMatchEventInsert(payload, callbacks);
         }
       );
@@ -155,6 +178,7 @@ class RealtimeServiceClass {
           filter: `match_id=eq.${matchId}`,
         },
         (payload: RealtimePostgresChangesPayload<any>) => {
+          console.log('Participant change received:', payload);
           this.handleParticipantChange(payload, callbacks);
         }
       );
@@ -347,8 +371,9 @@ class RealtimeServiceClass {
         this.channels.delete(matchId);
       }
 
-      // Clear presence data
+      // Clear presence data and subscription count
       this.presenceData.delete(matchId);
+      this.subscriptionCounts.delete(matchId);
     } catch (error) {
       logError(error, {
         action: 'unsubscribeFromMatch',
@@ -555,6 +580,23 @@ class RealtimeServiceClass {
    */
   getActiveSubscriptions(): string[] {
     return Array.from(this.channels.keys());
+  }
+
+  /**
+   * Get subscription statistics for debugging
+   */
+  getSubscriptionStats(): { matchId: string; count: number }[] {
+    return Array.from(this.subscriptionCounts.entries()).map(([matchId, count]) => ({
+      matchId,
+      count,
+    }));
+  }
+
+  /**
+   * Get total active subscriptions count
+   */
+  getTotalSubscriptions(): number {
+    return this.channels.size;
   }
 }
 
