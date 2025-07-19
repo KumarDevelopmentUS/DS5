@@ -106,8 +106,8 @@ const HomeScreen = () => {
   };
 
   const handleJoinMatch = () => {
-    // Navigate to join match screen or show room code input
-    router.push('/match/join' as any);
+    // Navigate to join match screen - user will need to enter room code
+    router.push('/match/join/input' as any);
   };
 
   const handleViewMatch = (matchId: string) => {

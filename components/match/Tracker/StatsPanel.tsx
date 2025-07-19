@@ -24,6 +24,8 @@ const getPlayerName = (player: Player | TrackerPlayer): string => {
   return player.nickname || player.username;
 };
 import { calculateLiveMVP } from '../../../utils/calculations';
+import { DetailedPlayerStats } from '../Stats/DetailedPlayerStats';
+import { useAuth } from '../../../hooks/auth/useAuth';
 import {
   SPACING,
   TYPOGRAPHY,
@@ -46,11 +48,14 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
   testID = 'stats-panel',
 }) => {
   const { colors } = useTheme();
+  const { user } = useAuth();
   const [expandedSections, setExpandedSections] = useState({
     liveStats: true,
     recentEvents: true,
     playerBreakdown: false,
+    detailedStats: false,
   });
+  const [selectedPlayerForDetails, setSelectedPlayerForDetails] = useState<string | null>(null);
 
   // Calculate MVP
   const playersWithStats = players
@@ -75,7 +80,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
   const calculateMatchStats = () => {
     const totalPlays = events.length;
     const scoringPlays = events.filter(
-      (e) => e.eventData.points && e.eventData.points > 0
+      (e) => e.eventData?.points && e.eventData.points > 0
     ).length;
 
     const playTypeCount = events.reduce(
@@ -232,17 +237,17 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
                   style={[styles.eventAction, { color: colors.textSecondary }]}
                 >
                   {event.eventType.toUpperCase()}
-                  {event.eventData.points
+                  {event.eventData?.points
                     ? ` (+${event.eventData.points})`
                     : ''}
                 </Text>
               </View>
 
               <Text style={[styles.eventTime, { color: colors.textSecondary }]}>
-                {event.timestamp.toLocaleTimeString([], {
+                {event.timestamp ? new Date(event.timestamp).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
-                })}
+                }) : '--:--'}
               </Text>
             </View>
           );
@@ -338,12 +343,61 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
                   </Text>
                 </View>
               </View>
+
+              {/* View Details Button */}
+              <TouchableOpacity
+                style={[styles.viewDetailsButton, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  setSelectedPlayerForDetails(player.userId);
+                  setExpandedSections(prev => ({ ...prev, detailedStats: true }));
+                }}
+              >
+                <Text style={[styles.viewDetailsText, { color: '#FFFFFF' }]}>
+                  View Details
+                </Text>
+              </TouchableOpacity>
             </View>
           );
         })
         .filter(Boolean)}
     </View>
   );
+
+  // Render detailed player stats content
+  const renderDetailedStats = () => {
+    if (!selectedPlayerForDetails) {
+      return (
+        <View style={styles.noSelectionContainer}>
+          <Text style={[styles.noSelectionText, { color: colors.textSecondary }]}>
+            Select a player to view detailed statistics
+          </Text>
+        </View>
+      );
+    }
+
+    const selectedPlayer = players.find(p => p.userId === selectedPlayerForDetails);
+    const selectedStats = playerStats[selectedPlayerForDetails];
+
+    if (!selectedPlayer || !selectedStats) {
+      return (
+        <View style={styles.noSelectionContainer}>
+          <Text style={[styles.noSelectionText, { color: colors.textSecondary }]}>
+            Player data not found
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.detailedStatsContainer}>
+        <DetailedPlayerStats
+          player={selectedPlayer}
+          stats={selectedStats}
+          isCurrentUser={user?.id === selectedPlayer.userId}
+        />
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.container, style]} testID={testID}>
@@ -370,6 +424,14 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
           'playerBreakdown',
           renderPlayerBreakdown(),
           'Detailed player statistics'
+        )}
+
+        {/* Detailed Player Statistics */}
+        {selectedPlayerForDetails && renderSection(
+          'Detailed Player Statistics',
+          'detailedStats',
+          renderDetailedStats(),
+          `Stats for ${getPlayerName(players.find(p => p.userId === selectedPlayerForDetails) || players[0])}`
         )}
       </ScrollView>
     </View>
@@ -524,6 +586,30 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.caption2,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     textTransform: 'uppercase',
+  },
+  viewDetailsButton: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDERS.sm,
+    marginTop: SPACING.xs,
+    alignSelf: 'flex-start',
+  },
+  viewDetailsText: {
+    fontSize: TYPOGRAPHY.sizes.caption1,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  noSelectionContainer: {
+    padding: SPACING.lg,
+    alignItems: 'center',
+  },
+  noSelectionText: {
+    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  detailedStatsContainer: {
+    flex: 1,
   },
 });
 

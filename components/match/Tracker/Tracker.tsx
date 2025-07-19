@@ -9,6 +9,7 @@ import {
   BackHandler,
   Text,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   TrackerProps,
   TrackerMatch,
@@ -55,6 +56,7 @@ export const Tracker: React.FC<TrackerProps> = ({
 }) => {
   const { colors } = useTheme();
   const { user } = useAuth();
+  const router = useRouter();
 
   // Local state
   const [showPlayLogger, setShowPlayLogger] = useState(false);
@@ -137,19 +139,66 @@ export const Tracker: React.FC<TrackerProps> = ({
   // Convert participants to tracker players and ensure all 4 positions
   const trackerPlayers: TrackerPlayer[] = trackerMatch
     ? (() => {
+        // Use live match data to determine positions if available
+        const livePlayerMap = liveMatchData?.playerMap || {};
+
+        // Debug logging
+        console.log('[Tracker] Live match data:', {
+          livePlayerMap,
+          participants: participants.map(p => ({ userId: p.userId, team: p.team })),
+          liveMatchData: liveMatchData ? {
+            hasPlayerMap: !!liveMatchData.playerMap,
+            playerMapKeys: Object.keys(liveMatchData.playerMap || {}),
+            playerMapValues: Object.values(liveMatchData.playerMap || {})
+          } : null
+        });
+
         // Convert existing participants to tracker players
-        const convertedPlayers = participants.map((participant, index) => {
-          // Determine position based on team and order
-          const teamPlayers = participants.filter(
-            (p) => p.team === participant.team
-          );
-          const teamIndex = teamPlayers.findIndex(
-            (p) => p.userId === participant.userId
-          );
-          const position =
-            participant.team === 'team1'
-              ? ((teamIndex + 1) as 1 | 2)
-              : ((teamIndex + 3) as 3 | 4);
+        const convertedPlayers = participants.map((participant) => {
+          // Try to get position from live match data first
+          const positionString = livePlayerMap[participant.userId];
+          
+          console.log(`[Tracker] Processing participant ${participant.userId}:`, {
+            positionString,
+            team: participant.team
+          });
+          
+          let position: 1 | 2 | 3 | 4;
+          
+          if (positionString) {
+            // Extract position from slot ID (e.g., "default_2" -> position 2)
+            const slotMatch = positionString.match(/default_(\d+)/);
+            if (slotMatch) {
+              position = parseInt(slotMatch[1]) as 1 | 2 | 3 | 4;
+              console.log(`[Tracker] Extracted position from slot: ${position}`);
+            } else {
+              // Fallback to old logic
+              const teamPlayers = participants.filter(
+                (p) => p.team === participant.team
+              );
+              const teamIndex = teamPlayers.findIndex(
+                (p) => p.userId === participant.userId
+              );
+              position =
+                participant.team === 'team1'
+                  ? ((teamIndex + 1) as 1 | 2)
+                  : ((teamIndex + 3) as 3 | 4);
+              console.log(`[Tracker] Fallback position calculation: ${position} (team: ${participant.team}, index: ${teamIndex})`);
+            }
+          } else {
+            // Fallback to old logic if no live data
+            const teamPlayers = participants.filter(
+              (p) => p.team === participant.team
+            );
+            const teamIndex = teamPlayers.findIndex(
+              (p) => p.userId === participant.userId
+            );
+            position =
+              participant.team === 'team1'
+                ? ((teamIndex + 1) as 1 | 2)
+                : ((teamIndex + 3) as 3 | 4);
+            console.log(`[Tracker] No live data, using fallback: ${position} (team: ${participant.team}, index: ${teamIndex})`);
+          }
 
           return convertToTrackerPlayer(
             participant,
@@ -233,6 +282,7 @@ export const Tracker: React.FC<TrackerProps> = ({
       );
 
       const playData = {
+        playerId: selectedAttacker, // The thrower's ID (not the logged-in user)
         eventType: selectedThrowResult,
         team:
           trackerPlayers.find((p) => p.userId === selectedAttacker)?.team ||
@@ -256,7 +306,7 @@ export const Tracker: React.FC<TrackerProps> = ({
         redemption: isRedemption
           ? {
               targetPlayerId: undefined, // Will be determined by the backend
-              success: redemptionSuccess, // Add redemption success/failure
+              success: redemptionSuccess || undefined, // Convert null to undefined
             }
           : undefined,
       };
@@ -322,6 +372,10 @@ export const Tracker: React.FC<TrackerProps> = ({
     if (!showRedemptionSection) {
       setShowFifaSection(false); // Close FIFA when opening redemption
     }
+  };
+
+  const handleBackToHome = () => {
+    router.push('/(tabs)/home');
   };
 
   // Loading state
@@ -866,6 +920,20 @@ export const Tracker: React.FC<TrackerProps> = ({
           events={lastFourEvents}
           testID={`${testID}-stats`}
         />
+
+        {/* Back to Home Button */}
+        <View style={styles.backToHomeContainer}>
+          <Button
+            onPress={handleBackToHome}
+            variant="outline"
+            style={styles.backToHomeButton}
+            testID="back-to-home-button"
+          >
+            <Text style={[styles.backToHomeText, { color: colors.primary }]}>
+              Back to Home
+            </Text>
+          </Button>
+        </View>
       </ScrollView>
     </View>
   );
@@ -1020,6 +1088,17 @@ const styles = StyleSheet.create({
   horizontalButton: {
     flex: 0, // Don't expand, just take needed space
     minWidth: 80,
+  },
+  backToHomeContainer: {
+    margin: SPACING.lg,
+    alignItems: 'center',
+  },
+  backToHomeButton: {
+    minWidth: 200,
+  },
+  backToHomeText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

@@ -65,7 +65,7 @@ export const MatchForm: React.FC<MatchFormProps> = ({
     scoreLimit: MATCH_SETTINGS.DEFAULT_SCORE_LIMIT,
     winByTwo: MATCH_SETTINGS.DEFAULT_WIN_BY_TWO,
     sinkPoints: MATCH_SETTINGS.DEFAULT_SINK_POINTS as 3 | 5,
-    isPublic: false,
+    isPublic: MATCH_SETTINGS.DEFAULT_VISIBILITY === 'public', // Use constant for consistency
     // Team names
     team1Name: 'Team 1',
     team2Name: 'Team 2',

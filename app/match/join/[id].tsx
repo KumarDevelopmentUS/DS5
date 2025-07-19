@@ -11,7 +11,7 @@ import { useTheme } from '../../../hooks/ui/useTheme';
 import { EnhancedMatchService } from '../../../services/match/enhancedMatchService';
 import { SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '../../../constants/theme';
 
-interface JoinMatchParams {
+type JoinMatchParams = {
   id: string;
   player?: string;
   user?: string;
@@ -186,7 +186,7 @@ export default function JoinMatchScreen() {
           onPress={handleJoinOption}
         >
           <View style={styles.joinOptionContent}>
-            <Ionicons name="keyboard" size={32} color={colors.primary} />
+            <Ionicons name="create" size={32} color={colors.primary} />
             <Text style={[styles.joinOptionTitle, { color: colors.text }]}>
               Manual Entry
             </Text>
@@ -240,21 +240,23 @@ export default function JoinMatchScreen() {
     <View style={styles.joinButtonContainer}>
       {!user ? (
         <Button
-          title="Sign In to Join Match"
           onPress={handleSignIn}
           variant="primary"
           size="large"
           style={styles.joinButton}
-        />
+        >
+          Sign In to Join Match
+        </Button>
       ) : (
         <Button
-          title={joining ? "Joining..." : "Join Match"}
           onPress={handleJoinMatch}
           variant="primary"
           size="large"
           disabled={!selectedPlayerId || joining}
           style={styles.joinButton}
-        />
+        >
+          {joining ? "Joining..." : "Join Match"}
+        </Button>
       )}
     </View>
   );

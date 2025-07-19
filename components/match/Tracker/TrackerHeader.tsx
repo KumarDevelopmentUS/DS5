@@ -324,8 +324,15 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
               <View style={styles.playerSlots}>
                 <TouchableOpacity
                   style={[styles.playerSlot, { borderColor: colors.primary }]}
-                  onPress={() => {
-                    onHostJoin?.('team1', 1);
+                  onPress={async () => {
+                    try {
+                      const success = await onHostJoin?.('team1', 1);
+                      if (!success) {
+                        console.error('Failed to join as host in position 1');
+                      }
+                    } catch (error) {
+                      console.error('Error joining as host:', error);
+                    }
                     setShowHostJoin(false);
                   }}
                 >
@@ -335,8 +342,15 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.playerSlot, { borderColor: colors.primary }]}
-                  onPress={() => {
-                    onHostJoin?.('team1', 2);
+                  onPress={async () => {
+                    try {
+                      const success = await onHostJoin?.('team1', 2);
+                      if (!success) {
+                        console.error('Failed to join as host in position 2');
+                      }
+                    } catch (error) {
+                      console.error('Error joining as host:', error);
+                    }
                     setShowHostJoin(false);
                   }}
                 >
@@ -355,8 +369,15 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
               <View style={styles.playerSlots}>
                 <TouchableOpacity
                   style={[styles.playerSlot, { borderColor: colors.primary }]}
-                  onPress={() => {
-                    onHostJoin?.('team2', 3);
+                  onPress={async () => {
+                    try {
+                      const success = await onHostJoin?.('team2', 3);
+                      if (!success) {
+                        console.error('Failed to join as host in position 3');
+                      }
+                    } catch (error) {
+                      console.error('Error joining as host:', error);
+                    }
                     setShowHostJoin(false);
                   }}
                 >
@@ -366,8 +387,15 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.playerSlot, { borderColor: colors.primary }]}
-                  onPress={() => {
-                    onHostJoin?.('team2', 4);
+                  onPress={async () => {
+                    try {
+                      const success = await onHostJoin?.('team2', 4);
+                      if (!success) {
+                        console.error('Failed to join as host in position 4');
+                      }
+                    } catch (error) {
+                      console.error('Error joining as host:', error);
+                    }
                     setShowHostJoin(false);
                   }}
                 >

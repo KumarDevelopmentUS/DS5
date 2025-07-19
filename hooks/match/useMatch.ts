@@ -84,7 +84,7 @@ export interface UseMatchState {
 
 export interface UseMatchActions {
   // Play submission
-  submitPlay: (playData: Omit<SubmitPlayData, 'playerId'>) => Promise<boolean>;
+  submitPlay: (playData: SubmitPlayData) => Promise<boolean>;
   undoLastPlay: () => Promise<boolean>;
 
   // Match control
@@ -249,8 +249,17 @@ export const useMatch = (
       return result.data;
     },
     onSuccess: (updatedMatch) => {
-      // Update the match data in the query cache
-      queryClient.setQueryData(['match', matchId, 'details'], updatedMatch);
+      // Update the match data in the query cache, preserving participants
+      queryClient.setQueryData(['match', matchId, 'details'], (oldMatch: Match | undefined) => {
+        if (oldMatch) {
+          return {
+            ...updatedMatch,
+            participants: oldMatch.participants || updatedMatch.participants || [],
+            currentScore: oldMatch.currentScore || updatedMatch.currentScore || { team1: 0, team2: 0 }
+          };
+        }
+        return updatedMatch;
+      });
     },
     onError: (error) => {
       const parsedError = handleError(error, {
@@ -434,7 +443,7 @@ export const useMatch = (
     }
   }, [liveData]);
 
-  // Calculate player stats when live match data changes
+  // Calculate player stats and current score when live match data changes
   useEffect(() => {
     if (liveMatchData?.livePlayerStats && includeStats) {
       const newStats: Record<string, LivePlayerStats> = {};
@@ -452,6 +461,24 @@ export const useMatch = (
       });
       
       setPlayerStats(newStats);
+
+      // Calculate current score from live player stats
+      let team1Score = 0;
+      let team2Score = 0;
+      
+      Object.entries(liveMatchData.livePlayerStats).forEach(([position, stats]) => {
+        const positionNum = parseInt(position);
+        const team = positionNum <= 2 ? 'team1' : 'team2';
+        const score = stats.score || 0;
+        
+        if (team === 'team1') {
+          team1Score += score;
+        } else {
+          team2Score += score;
+        }
+      });
+      
+      setCurrentScore({ team1: team1Score, team2: team2Score });
 
       // Calculate MVP from participants
       const playersWithStats = participants
@@ -539,7 +566,7 @@ export const useMatch = (
   }, [updateStatusMutation]);
 
   const submitPlay = useCallback(
-    async (playData: Omit<SubmitPlayData, 'playerId'>): Promise<boolean> => {
+    async (playData: SubmitPlayData): Promise<boolean> => {
       if (!user?.id) {
         const error = 'Must be logged in to submit plays';
         onError?.({ code: 'AUTH_REQUIRED', message: error });
@@ -555,12 +582,7 @@ export const useMatch = (
       setIsSubmittingPlay(true);
 
       try {
-        const fullPlayData: SubmitPlayData = {
-          ...playData,
-          playerId: user.id,
-        };
-
-        await submitPlayMutation.mutateAsync(fullPlayData);
+        await submitPlayMutation.mutateAsync(playData);
         return true;
       } catch (error) {
         return false;
@@ -685,9 +707,12 @@ export const useMatch = (
   const joinAsHost = useCallback(
     async (team: string, position: 1 | 2 | 3 | 4): Promise<boolean> => {
       try {
+        console.log(`[useMatch] joinAsHost called:`, { team, position });
         await hostJoinMutation.mutateAsync({ team, position });
+        console.log(`[useMatch] joinAsHost successful`);
         return true;
       } catch (error) {
+        console.error(`[useMatch] joinAsHost failed:`, error);
         return false;
       }
     },

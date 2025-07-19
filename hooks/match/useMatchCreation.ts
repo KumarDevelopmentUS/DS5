@@ -337,8 +337,8 @@ export const useMatchCreation = (): UseMatchCreationReturn => {
     const roomCode = match.roomCode;
 
     // Generate shareable URL (this would be your app's deep link)
-    // Format: diestats://join/A-123456 or https://diestats.app/join/A-123456
-    const baseUrl = 'diestats://join/'; // or your universal link domain
+    // Format: diestats://match/join/A-123456 or https://diestats.app/match/join/A-123456
+    const baseUrl = 'diestats://match/join/'; // or your universal link domain
     const shareableUrl = `${baseUrl}${roomCode}`;
 
     // QR code data - this will be the same URL that gets encoded into QR

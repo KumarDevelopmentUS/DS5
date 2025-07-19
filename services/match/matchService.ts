@@ -5,7 +5,7 @@ import {
   SCORING,
   SPECIAL_MECHANICS,
 } from '../../constants/game';
-import { ApiResponse, PaginationParams, ErrorCodes } from '../../types/api';
+import { ApiResponse, PaginationParams, ErrorCodes, SearchFilters } from '../../types/api';
 import { MATCH_CONFIG } from '../../constants/config';
 
 import {
@@ -84,6 +84,7 @@ export interface SubmitPlayData {
   };
   redemption?: {
     targetPlayerId?: string;
+    success?: boolean;
   };
 }
 
@@ -95,6 +96,9 @@ export interface MatchHistoryFilters extends SearchFilters {
   maxDate?: Date;
   wonOnly?: boolean;
   withStats?: boolean;
+  query?: string;
+  sortBy?: string;
+  sortDirection?: 'asc' | 'desc';
 }
 
 export interface JoinMatchData {
@@ -246,7 +250,7 @@ export class MatchService {
       }
 
       // Get current live match data or initialize it
-      let liveMatchData: LiveMatchData = match.live_match_data as LiveMatchData;
+      let liveMatchData: LiveMatchData = (match.live_match_data as unknown) as LiveMatchData;
       
       if (!liveMatchData) {
         // Initialize live match data if it doesn't exist
@@ -263,22 +267,39 @@ export class MatchService {
       }
 
       // Calculate points based on play type
-      const points = this.calculatePoints(
+      let points = this.calculatePoints(
         playData.eventType,
         playData.defenseType,
         match.settings as any
       );
 
-      // Get player position from playerMap
-      const playerPosition = liveMatchData.playerMap[playData.playerId];
+      // Get player position from playerMap or handle default players
+      let playerPosition = liveMatchData.playerMap[playData.playerId];
+      let positionNumber: string;
+      
       if (!playerPosition) {
-        throw new Error('Player not found in match');
+        // Handle default players - check if it's a default player ID
+        if (playData.playerId.startsWith('default_')) {
+          // Extract position from default player ID (e.g., "default_temp_3" -> "3")
+          const match = playData.playerId.match(/default_.*_(\d+)/);
+          if (match) {
+            positionNumber = match[1];
+            playerPosition = `default_${positionNumber}`;
+          } else {
+            throw new Error('Invalid default player ID format');
+          }
+        } else {
+          throw new Error('Player not found in match');
+        }
+      } else {
+        // Extract position number from slot ID (e.g., "default_4" -> "4")
+        positionNumber = playerPosition.replace('default_', '');
       }
 
       // Update throwing player statistics
       liveMatchData = updateThrowingPlayerStats(
         liveMatchData,
-        playerPosition,
+        positionNumber,
         playData.eventType,
         points
       );
@@ -288,27 +309,96 @@ export class MatchService {
         for (const defenderId of playData.defenderIds) {
           const defenderPosition = liveMatchData.playerMap[defenderId];
           if (defenderPosition) {
+            const defenderPositionNumber = defenderPosition.replace('default_', '');
             liveMatchData = updateDefensivePlayerStats(
               liveMatchData,
-              defenderPosition,
+              defenderPositionNumber,
               playData.defenseType!
             );
           }
         }
       }
 
-      // Update FIFA statistics if FIFA action was performed
+      // Handle FIFA Save mechanics according to rulebook
       if (playData.fifa) {
+        // Update FIFA statistics for the thrower
         const isSuccess = playData.fifa.kickType === 'good_kick';
         liveMatchData = updateFifaStats(
           liveMatchData,
-          playerPosition,
+          positionNumber,
           playData.fifa.kickType,
           isSuccess
         );
+
+        // Check FIFA Save conditions according to rulebook
+        const isBadThrow = ['short', 'long', 'side', 'height'].includes(playData.eventType);
+        const hasFifaAction = playData.fifa.kickType === 'good_kick' || playData.fifa.kickType === 'bad_kick';
+        const hasSuccessfulDefense = playData.defenseType && ['catch', 'catch_plus_aura'].includes(playData.defenseType);
+        const hasDefenderSelected = playData.defenderIds && playData.defenderIds.length > 0;
+
+        // All FIFA Save conditions must be met for 1 point to defending team
+        if (isBadThrow && hasFifaAction && hasSuccessfulDefense && hasDefenderSelected && playData.defenderIds) {
+          // Award 1 point to the defending team (not the thrower)
+          for (const defenderId of playData.defenderIds) {
+            const defenderPosition = liveMatchData.playerMap[defenderId];
+            if (defenderPosition) {
+              const defenderPositionNumber = defenderPosition.replace('default_', '');
+              const defenderStats = liveMatchData.livePlayerStats[defenderPositionNumber];
+              if (defenderStats) {
+                defenderStats.score += 1; // FIFA Save point to defender
+                defenderStats.fifaSuccess += 1; // Track FIFA save success
+              }
+            }
+          }
+        }
       }
 
-      // Add play to recent plays (keep only last 4)
+      // Handle Self Sink mechanics according to rulebook
+      if (playData.eventType === PlayType.SELF_SINK) {
+        // Self Sink: Opposing team automatically wins
+        const throwerTeam = playData.team;
+        const opponentTeam = throwerTeam === 'team1' ? 'team2' : 'team1';
+        
+        // Set opponent team score to game score limit to trigger immediate win
+        const gameScoreLimit = liveMatchData.matchSetup.gameScoreLimit;
+        
+        // Find all players on the opponent team and set their scores to win
+        Object.entries(liveMatchData.livePlayerStats).forEach(([position, stats]) => {
+          const positionNum = parseInt(position);
+          const playerTeam = positionNum <= 2 ? 'team1' : 'team2';
+          
+          if (playerTeam === opponentTeam) {
+            stats.score = gameScoreLimit; // Set to win condition
+          }
+        });
+        
+        // Set match status to ended
+        liveMatchData.status = 'ended';
+      }
+
+      // Handle Redemption mechanics according to rulebook
+      if (playData.redemption && playData.redemption.success) {
+        // Redemption Success: Negates current throw points AND removes 1 point from opponent
+        // First, negate the current throw points (set points to 0)
+        const originalPoints = points;
+        points = 0;
+        
+        // Remove 1 point from the opponent team
+        const throwerTeam = playData.team;
+        const opponentTeam = throwerTeam === 'team1' ? 'team2' : 'team1';
+        
+        // Find all players on the opponent team and remove 1 point from each
+        Object.entries(liveMatchData.livePlayerStats).forEach(([position, stats]) => {
+          const positionNum = parseInt(position);
+          const playerTeam = positionNum <= 2 ? 'team1' : 'team2';
+          
+          if (playerTeam === opponentTeam && stats.score > 0) {
+            stats.score = Math.max(0, stats.score - 1); // Remove 1 point, but don't go below 0
+          }
+        });
+      }
+
+      // Add play to recent plays (keep only the most recent)
       const newPlay = {
         playerId: playData.playerId,
         eventType: playData.eventType,
@@ -319,12 +409,12 @@ export class MatchService {
         redemption: playData.redemption,
       };
       
-      liveMatchData.recentPlays = [newPlay, ...liveMatchData.recentPlays.slice(0, 3)];
+      liveMatchData.recentPlays = [newPlay];
 
       // Update the match with new live match data
       const { error: updateError } = await supabase
         .from('matches')
-        .update({ live_match_data: liveMatchData })
+        .update({ live_match_data: liveMatchData as any })
         .eq('id', matchId);
 
       if (updateError) {
@@ -485,8 +575,8 @@ export class MatchService {
         items: filteredMatches,
         pagination: {
           page,
-          limit,
-          total: count || 0,
+          pageSize: limit,
+          totalCount: count || 0,
         },
         hasMore: (count || 0) > to + 1,
       };
@@ -706,6 +796,8 @@ export class MatchService {
     position: 1 | 2 | 3 | 4
   ): Promise<MatchServiceResponse<boolean>> {
     try {
+      console.log(`[joinAsHost] Starting join process:`, { matchId, userId, team, position });
+      
       // Verify the match exists and user is the creator
       const { data: match, error: matchError } = await supabase
         .from('matches')
@@ -714,6 +806,7 @@ export class MatchService {
         .single();
 
       if (matchError || !match) {
+        console.error(`[joinAsHost] Match not found:`, { matchId, error: matchError });
         return {
           data: null,
           error: {
@@ -726,6 +819,7 @@ export class MatchService {
       }
 
       if (match.creator_id !== userId) {
+        console.error(`[joinAsHost] User is not creator:`, { userId, creatorId: match.creator_id });
         return {
           data: null,
           error: {
@@ -788,43 +882,134 @@ export class MatchService {
           livePlayerStats: {},
           liveTeamPenalties: {},
           matchSetup: {
-            participants: [],
-            playerMap: {},
+            arena: 'Unknown Arena',
+            gameScoreLimit: 11,
+            sinkPoints: 3,
+            winByTwo: true,
+            title: 'Match',
+            teamNames: {
+              team1: 'Team 1',
+              team2: 'Team 2',
+            },
+            playerNames: {
+              player1: 'Player 1',
+              player2: 'Player 2',
+              player3: 'Player 3',
+              player4: 'Player 4',
+            },
           },
+          participants: [],
+          playerMap: {},
           recentPlays: [],
-          currentScore: { team1: 0, team2: 0 },
+          roomCode: '',
+          status: 'waiting',
         };
       }
 
-      // Map position to slot ID
+      // Ensure matchSetup and participants exist
+      if (!liveMatchData.matchSetup) {
+        console.log(`[joinAsHost] Creating new matchSetup`);
+        liveMatchData.matchSetup = {
+          arena: 'Unknown Arena',
+          gameScoreLimit: 11,
+          sinkPoints: 3,
+          winByTwo: true,
+          title: 'Match',
+          teamNames: {
+            team1: 'Team 1',
+            team2: 'Team 2',
+          },
+          playerNames: {
+            player1: 'Player 1',
+            player2: 'Player 2',
+            player3: 'Player 3',
+            player4: 'Player 4',
+          },
+        };
+      }
+
+      // Ensure participants array exists at root level
+      if (!liveMatchData.participants) {
+        console.log(`[joinAsHost] Creating new participants array`);
+        liveMatchData.participants = [];
+      }
+
+      // Ensure playerMap exists at root level
+      if (!liveMatchData.playerMap) {
+        console.log(`[joinAsHost] Creating new playerMap`);
+        liveMatchData.playerMap = {};
+      }
+
+      console.log(`[joinAsHost] Live match data structure:`, {
+        hasMatchSetup: !!liveMatchData.matchSetup,
+        hasParticipants: !!liveMatchData.participants,
+        hasPlayerMap: !!liveMatchData.playerMap,
+        participantCount: liveMatchData.participants.length,
+        playerMapKeys: Object.keys(liveMatchData.playerMap)
+      });
+
+      // Map position to slot ID and ensure proper team assignment
       const slotId = `default_${position}`;
       
+      // Determine correct team based on position
+      const correctTeam = position <= 2 ? 'team1' : 'team2';
+      
       // Update or add participant in live match data
-      const existingParticipantIndex = liveMatchData.matchSetup.participants.findIndex(
+      const existingParticipantIndex = liveMatchData.participants.findIndex(
         (p: any) => p.userId === userId
       );
 
+      // Get user profile to get display name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('nickname, username')
+        .eq('id', userId)
+        .single();
+      
+      const displayName = profile?.nickname || profile?.username || `Player ${position}`;
+      
       if (existingParticipantIndex >= 0) {
         // Update existing participant
-        liveMatchData.matchSetup.participants[existingParticipantIndex] = {
-          ...liveMatchData.matchSetup.participants[existingParticipantIndex],
+        liveMatchData.participants[existingParticipantIndex] = {
+          ...liveMatchData.participants[existingParticipantIndex],
           id: slotId,
-          team,
+          team: correctTeam, // Use correct team based on position
+          displayName: displayName,
         };
       } else {
         // Add new participant
         const newParticipant = {
           id: slotId,
           userId: userId,
-          displayName: 'Host Player', // Will be updated with actual name
-          team,
+          displayName: displayName,
+          team: correctTeam, // Use correct team based on position
           isRegistered: true,
         };
-        liveMatchData.matchSetup.participants.push(newParticipant);
+        liveMatchData.participants.push(newParticipant);
       }
 
       // Update player map
-      liveMatchData.matchSetup.playerMap[userId] = slotId;
+      liveMatchData.playerMap[userId] = slotId;
+
+      // Update player name in matchSetup if available
+      if (liveMatchData.matchSetup?.playerNames) {
+        const playerKey = `player${position}` as keyof typeof liveMatchData.matchSetup.playerNames;
+        if (playerKey in liveMatchData.matchSetup.playerNames) {
+          liveMatchData.matchSetup.playerNames[playerKey] = displayName;
+        }
+      }
+
+      // Update player name in livePlayerStats
+      if (liveMatchData.livePlayerStats && liveMatchData.livePlayerStats[position.toString()]) {
+        liveMatchData.livePlayerStats[position.toString()].name = displayName;
+      }
+
+      console.log(`[joinAsHost] Updated player map:`, {
+        userId,
+        slotId,
+        playerMap: liveMatchData.playerMap,
+        allParticipants: liveMatchData.participants
+      });
 
       // Save updated live match data
       const { error: liveDataError } = await supabase
@@ -838,6 +1023,15 @@ export class MatchService {
 
       // Clear cache
       await this.clearMatchCache(matchId);
+
+      console.log(`[joinAsHost] Successfully joined as host:`, { 
+        matchId, 
+        userId, 
+        position, 
+        slotId, 
+        correctTeam,
+        participantCount: liveMatchData.participants.length 
+      });
 
       return {
         data: true,
@@ -881,6 +1075,30 @@ export class MatchService {
         updateData.started_at = new Date().toISOString();
       } else if (status === 'completed' || status === 'abandoned') {
         updateData.ended_at = new Date().toISOString();
+      }
+
+      // Get current live match data to update its status
+      const { data: currentLiveData } = await supabase
+        .from('matches')
+        .select('live_match_data')
+        .eq('id', matchId)
+        .single();
+
+      let liveMatchData = currentLiveData?.live_match_data as any;
+      if (liveMatchData) {
+        // Update the status in live match data
+        liveMatchData.status = status;
+        
+        // Update live match data in database
+        const { error: liveDataError } = await supabase
+          .from('matches')
+          .update({ live_match_data: liveMatchData as any })
+          .eq('id', matchId);
+
+        if (liveDataError) {
+          console.error('Failed to update live match data status:', liveDataError);
+          // Continue with main status update even if live data update fails
+        }
       }
 
       const { data: match, error } = await supabase
@@ -986,7 +1204,7 @@ export class MatchService {
         throw matchError || new Error('Match not found');
       }
 
-      const liveMatchData = match.live_match_data as LiveMatchData;
+      const liveMatchData = (match.live_match_data as unknown) as LiveMatchData;
 
       if (!liveMatchData) {
         return {
@@ -1016,20 +1234,60 @@ export class MatchService {
 
        const playerStats = liveMatchData.livePlayerStats[playerPosition];
 
+      // Calculate catch attempts from available stats
+      const catchAttempts = playerStats.catches + playerStats.drop + playerStats.miss + playerStats.twoHands + playerStats.body;
+
       // Apply calculation functions from utils/calculations.ts
       const performanceMetrics = {
         hitRate: calculateHitRate(playerStats.hits, playerStats.throws),
-        catchRate: calculateCatchRate(playerStats.catches, playerStats.catchAttempts),
+        catchRate: calculateCatchRate(playerStats.catches, catchAttempts),
         efficiency: calculateEfficiency(playerStats.score, playerStats.throws),
-        mvpScore: calculateMVPScore(playerStats),
-        performanceRating: calculatePerformanceRating(playerStats),
+        mvpScore: calculateMVPScore({
+          ...playerStats,
+          catchAttempts,
+          sinks: playerStats.sink,
+          goals: playerStats.goal,
+          dinks: playerStats.dink,
+          knickers: playerStats.knicker,
+          currentStreak: playerStats.hitStreak,
+          longestStreak: playerStats.hitStreak,
+          onFireCount: playerStats.onFireCount,
+          blunders: playerStats.blunders,
+          fifaAttempts: playerStats.fifaAttempts,
+          fifaSuccess: playerStats.fifaSuccess,
+        } as PlayerMatchStats),
+        performanceRating: calculatePerformanceRating({
+          ...playerStats,
+          catchAttempts,
+          sinks: playerStats.sink,
+          goals: playerStats.goal,
+          dinks: playerStats.dink,
+          knickers: playerStats.knicker,
+          currentStreak: playerStats.hitStreak,
+          longestStreak: playerStats.hitStreak,
+          onFireCount: playerStats.onFireCount,
+          blunders: playerStats.blunders,
+          fifaAttempts: playerStats.fifaAttempts,
+          fifaSuccess: playerStats.fifaSuccess,
+        } as PlayerMatchStats),
       };
 
       return {
         data: {
           ...playerStats,
+          catchAttempts,
+          sinks: playerStats.sink,
+          goals: playerStats.goal,
+          dinks: playerStats.dink,
+          knickers: playerStats.knicker,
+          currentStreak: playerStats.hitStreak,
+          longestStreak: playerStats.hitStreak,
+          onFireCount: playerStats.onFireCount,
+          blunders: playerStats.blunders,
+          fifaAttempts: playerStats.fifaAttempts,
+          fifaSuccess: playerStats.fifaSuccess,
           ...performanceMetrics,
-        },
+        } as PlayerMatchStats,
         error: null,
         success: true,
         timestamp: new Date().toISOString(),
@@ -1576,9 +1834,9 @@ export class MatchService {
       return { team1: 0, team2: 0 };
     }
 
-    const liveMatchData = match.live_match_data as LiveMatchData;
+    const liveMatchData = (match.live_match_data as unknown) as LiveMatchData;
 
-         // Calculate team scores from player scores
+    // Calculate team scores from player scores
      let team1Score = 0;
      let team2Score = 0;
 
@@ -1646,7 +1904,7 @@ export class MatchService {
       return { currentStreak: 0, longestStreak: 0 };
     }
 
-    const liveMatchData = match.live_match_data as LiveMatchData;
+    const liveMatchData = (match.live_match_data as unknown) as LiveMatchData;
     const playerPosition = liveMatchData.playerMap[playerId];
     
     if (!playerPosition) {
@@ -1801,7 +2059,7 @@ export class MatchService {
       }
 
       return {
-        data: match.live_match_data as LiveMatchData || null,
+        data: (match.live_match_data as unknown) as LiveMatchData || null,
         error: null,
         success: true,
         timestamp: new Date().toISOString(),
