@@ -16,6 +16,12 @@ export const DatabaseTest: React.FC = () => {
     setTestResult('Testing...');
 
     try {
+      console.log('Testing database connection...');
+      console.log('Environment variables:', {
+        SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+        HAS_ANON_KEY: !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+      });
+      
       const result = await EnhancedMatchService.testDatabaseConnection();
       
       if (result.success) {
@@ -24,6 +30,7 @@ export const DatabaseTest: React.FC = () => {
         setTestResult(`❌ Database connection failed: ${result.error?.message}`);
       }
     } catch (error) {
+      console.error('Database test error:', error);
       setTestResult(`❌ Test error: ${error}`);
     } finally {
       setIsTesting(false);
@@ -49,7 +56,7 @@ export const DatabaseTest: React.FC = () => {
         settings: {
           scoreLimit: 11,
           winByTwo: true,
-          sinkPoints: 3,
+          sinkPoints: 3 as 3 | 5,
           teamNames: {
             team1: 'Team 1',
             team2: 'Team 2',

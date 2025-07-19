@@ -39,7 +39,7 @@ export const TrackerHeader: React.FC<TrackerHeaderProps> = ({
   const generateShareableUrl = (): string => {
     // Use localhost web URL with room code that can be opened in any browser
     // This will work reliably across all devices and browsers
-    return `http://localhost:3000/?code=${match.roomCode}`;
+    return `http://localhost:3000/match/join/${match.id}?code=${match.roomCode}`;
   };
 
   // Handle room code copy

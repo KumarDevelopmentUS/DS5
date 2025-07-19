@@ -380,6 +380,7 @@ export const Tracker: React.FC<TrackerProps> = ({
 
   // Loading state
   if (isLoading || !trackerMatch) {
+    console.log('[Tracker] Loading state:', { isLoading, hasMatch: !!trackerMatch, matchId });
     return (
       <View
         style={[

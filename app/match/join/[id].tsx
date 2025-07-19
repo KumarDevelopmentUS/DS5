@@ -15,10 +15,11 @@ type JoinMatchParams = {
   id: string;
   player?: string;
   user?: string;
+  code?: string;
 }
 
 export default function JoinMatchScreen() {
-  const { id, player, user: userNameFromLink } = useLocalSearchParams<JoinMatchParams>();
+  const { id, player, user: userNameFromLink, code } = useLocalSearchParams<JoinMatchParams>();
   const router = useRouter();
   const { colors } = useTheme();
   const { user, profile, signIn } = useAuth();
@@ -36,6 +37,20 @@ export default function JoinMatchScreen() {
       loadMatchData();
     }
   }, [id]);
+
+  // Handle code parameter from QR code
+  useEffect(() => {
+    if (code && match) {
+      // Verify the code matches the room code
+      if (code === match.roomCode) {
+        console.log('Valid room code from QR code, proceeding to join');
+        setScanned(true);
+      } else {
+        console.log('Invalid room code from QR code');
+        Alert.alert('Invalid Code', 'The room code does not match this match');
+      }
+    }
+  }, [code, match]);
 
   // Handle player parameter from deep link
   useEffect(() => {
@@ -74,16 +89,43 @@ export default function JoinMatchScreen() {
       
       if (result.success && result.data) {
         setMatch(result.data);
-        // Transform participants to player selection format
-        const playerSlots = result.data.participants?.map((participant: any, index: number) => ({
-          id: participant.userId || `default_${index + 1}`,
-          name: participant.username,
-          team: participant.team,
-          userId: participant.userId,
-          avatarUrl: participant.avatarUrl,
-          isDefault: !participant.userId,
-        })) || [];
-        setPlayers(playerSlots);
+        
+        // Create 4 default player slots - always show all 4 slots
+        const defaultPlayerSlots = [
+          { id: 'default_1', name: 'Player 1', team: 'team1', userId: null, avatarUrl: null, isDefault: true },
+          { id: 'default_2', name: 'Player 2', team: 'team1', userId: null, avatarUrl: null, isDefault: true },
+          { id: 'default_3', name: 'Player 3', team: 'team2', userId: null, avatarUrl: null, isDefault: true },
+          { id: 'default_4', name: 'Player 4', team: 'team2', userId: null, avatarUrl: null, isDefault: true },
+        ];
+        
+        // If there are participants, update the slots
+        if (result.data.participants && result.data.participants.length > 0) {
+          const updatedSlots = defaultPlayerSlots.map((slot, index) => {
+            // Find participant for this position
+            const participant = result.data.participants.find((p: any) => {
+              if (p.team === 'team1' && index < 2) return true;
+              if (p.team === 'team2' && index >= 2) return true;
+              return false;
+            });
+            
+            if (participant) {
+              return {
+                ...slot,
+                name: participant.username || slot.name,
+                userId: participant.userId,
+                avatarUrl: participant.avatarUrl,
+                isDefault: false,
+              };
+            }
+            
+            return slot;
+          });
+          
+          setPlayers(updatedSlots);
+        } else {
+          // No participants yet, use default slots
+          setPlayers(defaultPlayerSlots);
+        }
       } else {
         Alert.alert('Error', 'Match not found or invalid match ID');
         router.back();
@@ -106,6 +148,10 @@ export default function JoinMatchScreen() {
     setSelectedPlayerId(playerId);
   };
 
+  const handleBackToSelection = () => {
+    setSelectedPlayerId(null);
+  };
+
   const handleJoinMatch = async () => {
     if (!user) {
       Alert.alert('Sign In Required', 'You need to sign in to join this match');
@@ -124,17 +170,20 @@ export default function JoinMatchScreen() {
         user.id,
         displayName,
         profile?.avatarUrl,
-        player // Pass the selected position
+        selectedPlayerId // Pass the selected player ID
       );
 
       if (result.success) {
         Alert.alert(
           'Success!',
-          'You have joined the match! Your information has been sent to the host.',
+          `You have joined the match as ${displayName}! The host will see you in their tracker.`,
           [
             {
               text: 'OK',
-              onPress: () => router.back() // Go back, don't navigate to match
+              onPress: () => {
+                // Navigate back to home or close the join page
+                router.back();
+              }
             }
           ]
         );
@@ -209,7 +258,131 @@ export default function JoinMatchScreen() {
     </View>
   );
 
-  const renderSimpleJoin = () => (
+  const renderPlayerSelection = () => (
+    <View style={styles.playerSelectionContainer}>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>
+        Select Your Player Slot
+      </Text>
+      <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+        Choose an available slot below for your team. Your nickname (hero) will appear on the hosts tracker.
+      </Text>
+      <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+        If you select the wrong slot, create a new match and join again.
+      </Text>
+
+      {/* Team 1 */}
+      <View style={styles.teamSection}>
+        <Text style={[styles.teamTitle, { color: colors.text }]}>Team 1</Text>
+        <View style={styles.teamPlayersGrid}>
+          {players.slice(0, 2).map((playerSlot, index) => {
+            const isSelected = selectedPlayerId === playerSlot.id;
+            const isAvailable = !playerSlot.userId;
+            
+            return (
+              <Card
+                key={playerSlot.id}
+                style={[
+                  styles.playerCard,
+                  isSelected && { borderColor: colors.primary, borderWidth: 2 },
+                  !isAvailable && { opacity: 0.5 }
+                ]}
+                onPress={() => isAvailable && handlePlayerSelect(playerSlot.id)}
+                disabled={!isAvailable}
+              >
+                <View style={styles.playerCardContent}>
+                  <Avatar
+                    source={playerSlot.avatarUrl}
+                    size="medium"
+                    style={styles.playerAvatar}
+                  />
+                  <Text style={[styles.playerName, { color: colors.text }]}>
+                    {playerSlot.name}
+                  </Text>
+                  
+                  {!isAvailable && (
+                    <View style={styles.linkedIndicator}>
+                      <Ionicons name="checkmark-circle" size={12} color={colors.success} />
+                      <Text style={[styles.linkedText, { color: colors.success }]}>
+                        Joined
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {isAvailable && (
+                    <Button
+                      onPress={() => handlePlayerSelect(playerSlot.id)}
+                      variant="primary"
+                      size="small"
+                      style={styles.joinButton}
+                    >
+                      Join as {playerSlot.name}
+                    </Button>
+                  )}
+                </View>
+              </Card>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Team 2 */}
+      <View style={styles.teamSection}>
+        <Text style={[styles.teamTitle, { color: colors.text }]}>Team 2</Text>
+        <View style={styles.teamPlayersGrid}>
+          {players.slice(2, 4).map((playerSlot, index) => {
+            const isSelected = selectedPlayerId === playerSlot.id;
+            const isAvailable = !playerSlot.userId;
+            
+            return (
+              <Card
+                key={playerSlot.id}
+                style={[
+                  styles.playerCard,
+                  isSelected && { borderColor: colors.primary, borderWidth: 2 },
+                  !isAvailable && { opacity: 0.5 }
+                ]}
+                onPress={() => isAvailable && handlePlayerSelect(playerSlot.id)}
+                disabled={!isAvailable}
+              >
+                <View style={styles.playerCardContent}>
+                  <Avatar
+                    source={playerSlot.avatarUrl}
+                    size="medium"
+                    style={styles.playerAvatar}
+                  />
+                  <Text style={[styles.playerName, { color: colors.text }]}>
+                    {playerSlot.name}
+                  </Text>
+                  
+                  {!isAvailable && (
+                    <View style={styles.linkedIndicator}>
+                      <Ionicons name="checkmark-circle" size={12} color={colors.success} />
+                      <Text style={[styles.linkedText, { color: colors.success }]}>
+                        Joined
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {isAvailable && (
+                    <Button
+                      onPress={() => handlePlayerSelect(playerSlot.id)}
+                      variant="primary"
+                      size="small"
+                      style={styles.joinButton}
+                    >
+                      Join as {playerSlot.name}
+                    </Button>
+                  )}
+                </View>
+              </Card>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderJoinConfirmation = () => (
     <View style={styles.simpleJoinContainer}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
         Join Match
@@ -233,6 +406,16 @@ export default function JoinMatchScreen() {
           </Text>
         </View>
       </View>
+
+      {/* Back Button */}
+      <Button
+        onPress={handleBackToSelection}
+        variant="secondary"
+        size="medium"
+        style={styles.backButton}
+      >
+        Change Position
+      </Button>
     </View>
   );
 
@@ -289,6 +472,49 @@ export default function JoinMatchScreen() {
         </Text>
       </View>
 
+      {/* Authentication Section */}
+      <View style={styles.authSection}>
+        {user ? (
+          <View style={styles.userInfo}>
+            <Avatar
+              source={profile?.avatarUrl}
+              size="small"
+              style={styles.userAvatar}
+            />
+            <View style={styles.userDetails}>
+              <Text style={[styles.userName, { color: colors.text }]}>
+                {profile?.username || user.email}
+              </Text>
+              <Text style={[styles.userStatus, { color: colors.success }]}>
+                Signed In
+              </Text>
+            </View>
+            <Button
+              onPress={() => signIn.signOut()}
+              variant="secondary"
+              size="small"
+              style={styles.signOutButton}
+            >
+              Sign Out
+            </Button>
+          </View>
+        ) : (
+          <View style={styles.signInPrompt}>
+            <Text style={[styles.signInText, { color: colors.textSecondary }]}>
+              Sign in to join this match
+            </Text>
+            <Button
+              onPress={handleSignIn}
+              variant="primary"
+              size="medium"
+              style={styles.signInButton}
+            >
+              Sign In
+            </Button>
+          </View>
+        )}
+      </View>
+
       {/* Match Info */}
       {match && (
         <Card style={styles.matchInfoCard}>
@@ -317,11 +543,12 @@ export default function JoinMatchScreen() {
         </Card>
       )}
 
-      {/* Join Options or Simple Join */}
-      {!scanned ? renderJoinOptions() : renderSimpleJoin()}
+      {/* Join Options, Player Selection, or Join Confirmation */}
+      {!scanned ? renderJoinOptions() : 
+       !selectedPlayerId ? renderPlayerSelection() : renderJoinConfirmation()}
 
       {/* Join Button */}
-      {scanned && renderJoinButton()}
+      {scanned && selectedPlayerId && renderJoinButton()}
     </ScrollView>
   );
 }
@@ -347,6 +574,46 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.callout,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     letterSpacing: 1,
+  },
+  authSection: {
+    marginBottom: SPACING.lg,
+    padding: SPACING.md,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: BORDERS.md,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  userAvatar: {
+    marginRight: SPACING.xs,
+  },
+  userDetails: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: TYPOGRAPHY.sizes.callout,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  userStatus: {
+    fontSize: TYPOGRAPHY.sizes.footnote,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  signOutButton: {
+    minWidth: 80,
+  },
+  signInPrompt: {
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  signInText: {
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'center',
+  },
+  signInButton: {
+    minWidth: 120,
   },
   matchInfoCard: {
     marginBottom: SPACING.lg,
@@ -458,6 +725,20 @@ const styles = StyleSheet.create({
   playerSelectionContainer: {
     marginBottom: SPACING.lg,
   },
+  teamSection: {
+    marginBottom: SPACING.lg,
+  },
+  teamTitle: {
+    fontSize: TYPOGRAPHY.sizes.title3,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
+  },
+  teamPlayersGrid: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    justifyContent: 'center',
+  },
   playersGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -500,6 +781,13 @@ const styles = StyleSheet.create({
   },
   joinButton: {
     width: '100%',
+  },
+  backButton: {
+    marginTop: SPACING.md,
+    alignSelf: 'center',
+  },
+  joinButton: {
+    marginTop: SPACING.xs,
   },
   loadingContainer: {
     flex: 1,

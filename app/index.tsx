@@ -1,4 +1,4 @@
-import { Redirect } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../hooks/auth/useAuth';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useTheme } from '../hooks/ui/useTheme';
@@ -13,6 +13,7 @@ import { useTheme } from '../hooks/ui/useTheme';
 export default function Index() {
   const { loading } = useAuth();
   const { colors } = useTheme();
+  const { code } = useLocalSearchParams<{ code?: string }>();
 
   if (loading) {
     // Display a loading indicator while the auth state is being determined.
@@ -21,6 +22,13 @@ export default function Index() {
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
+  }
+
+  // If there's a code parameter, redirect to the join page
+  if (code) {
+    // We need to find the match by room code first
+    // For now, redirect to home and show a message
+    return <Redirect href={`/(tabs)/home?code=${code}`} />;
   }
 
   // Always redirect to home page - users can be guests or authenticated

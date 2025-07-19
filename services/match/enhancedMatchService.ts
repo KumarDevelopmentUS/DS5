@@ -48,8 +48,13 @@ export class EnhancedMatchService {
    */
   static async testDatabaseConnection(): Promise<ApiResponse<{ tables: string[]; user: any }>> {
     try {
+      console.log('Testing database connection...');
+      console.log('Supabase URL:', process.env.EXPO_PUBLIC_SUPABASE_URL);
+      
       // Test basic connection
       const { data: user, error: userError } = await supabase.auth.getUser();
+      
+      console.log('Auth test result:', { user: !!user, error: userError });
       
       if (userError) {
         throw userError;
@@ -106,6 +111,8 @@ export class EnhancedMatchService {
   ): Promise<ApiResponse<Match>> {
     try {
       console.log('Creating enhanced match:', data);
+      console.log('Creator ID:', creatorId);
+      console.log('Supabase URL:', process.env.EXPO_PUBLIC_SUPABASE_URL);
 
       // Validate input
       const titleValidation = validateMatchTitle(data.title);
@@ -687,9 +694,100 @@ export class EnhancedMatchService {
     position?: string
   ): Promise<ApiResponse<{ participant: any }>> {
     try {
-      console.log('Simple join match:', { matchId, userId, displayName });
+      console.log('Simple join match:', { matchId, userId, displayName, position });
 
-      // Get current match data
+      // Check if user is already a participant
+      const { data: existingParticipant, error: checkError } = await supabase
+        .from('match_participants')
+        .select('*')
+        .eq('match_id', matchId)
+        .eq('user_id', userId)
+        .single();
+
+      if (existingParticipant) {
+        console.log('User already joined this match');
+        return {
+          data: { participant: existingParticipant },
+          error: null,
+          success: true,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // Determine the slot and team based on position
+      let slotId: string;
+      let team: string;
+      
+      if (position) {
+        // Map position to slot ID
+        const positionMap: { [key: string]: string } = {
+          'default_1': 'default_1',
+          'default_2': 'default_2', 
+          'default_3': 'default_3',
+          'default_4': 'default_4',
+        };
+        slotId = positionMap[position];
+        team = slotId === 'default_1' || slotId === 'default_2' ? 'team1' : 'team2';
+      } else {
+        // Find an available slot
+        const { data: allParticipants, error: participantsError } = await supabase
+          .from('match_participants')
+          .select('*')
+          .eq('match_id', matchId);
+
+        if (participantsError) {
+          throw participantsError;
+        }
+
+        const takenSlots = allParticipants?.map(p => p.slot_id) || [];
+        const availableSlots = ['default_1', 'default_2', 'default_3', 'default_4'].filter(
+          slot => !takenSlots.includes(slot)
+        );
+
+        if (availableSlots.length === 0) {
+          throw new Error('No available player slots');
+        }
+        
+        slotId = availableSlots[0];
+        team = slotId === 'default_1' || slotId === 'default_2' ? 'team1' : 'team2';
+      }
+
+      // Check if the specific slot is already taken
+      const { data: slotTaken, error: slotCheckError } = await supabase
+        .from('match_participants')
+        .select('*')
+        .eq('match_id', matchId)
+        .eq('slot_id', slotId)
+        .single();
+
+      if (slotTaken) {
+        throw new Error(`Position ${slotId} is already taken`);
+      }
+
+      // Create participant record in match_participants table
+      const participantData = {
+        match_id: matchId,
+        user_id: userId,
+        slot_id: slotId,
+        team: team,
+        display_name: displayName,
+        avatar_url: avatarUrl,
+        role: 'player' as any,
+        is_active: true,
+        joined_at: new Date().toISOString(),
+      };
+
+      const { data: newParticipant, error: insertError } = await supabase
+        .from('match_participants')
+        .insert(participantData)
+        .select('*')
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      // Update live match data to include the new participant
       const { data: match, error: matchError } = await supabase
         .from('matches')
         .select('live_match_data')
@@ -700,7 +798,6 @@ export class EnhancedMatchService {
         throw new Error('Match not found');
       }
 
-      // Get or initialize live match data
       let liveMatchData = match.live_match_data as any;
       if (!liveMatchData) {
         liveMatchData = {
@@ -715,75 +812,52 @@ export class EnhancedMatchService {
         };
       }
 
-      // Add user to participants if not already there
-      const existingParticipant = liveMatchData.matchSetup.participants.find(
-        (p: any) => p.userId === userId
-      );
+      // Add participant to live match data
+      const liveParticipant = {
+        id: slotId,
+        userId: userId,
+        displayName: displayName,
+        avatarUrl: avatarUrl,
+        team: team,
+        isRegistered: true,
+      };
 
-      if (!existingParticipant) {
-        // Use specified position if provided, otherwise find an available slot
-        let slotId: string;
-        if (position) {
-          // Map position to slot ID
-          const positionMap: { [key: string]: string } = {
-            'player1': 'default_1',
-            'player2': 'default_2',
-            'player3': 'default_3',
-            'player4': 'default_4',
-          };
-          slotId = positionMap[position];
-          
-          // Check if this slot is already taken
-          const slotTaken = liveMatchData.matchSetup.participants.find(
-            (p: any) => p.id === slotId
-          );
-          
-          if (slotTaken) {
-            throw new Error(`Position ${position} is already taken`);
-          }
-        } else {
-          // Find an available slot
-          const availableSlots = ['default_1', 'default_2', 'default_3', 'default_4'].filter(
-            slotId => !liveMatchData.matchSetup.participants.find(
-              (p: any) => p.id === slotId
-            )
-          );
+      liveMatchData.matchSetup.participants.push(liveParticipant);
+      liveMatchData.matchSetup.playerMap[userId] = slotId;
 
-          if (availableSlots.length === 0) {
-            throw new Error('No available player slots');
-          }
-          slotId = availableSlots[0];
-        }
-        
-        const team = slotId === 'default_1' || slotId === 'default_2' ? 'team1' : 'team2';
-        
-        const newParticipant = {
-          id: slotId,
-          userId: userId,
-          displayName: displayName,
-          avatarUrl: avatarUrl,
+      // Update match with new live match data
+      const { error: updateError } = await supabase
+        .from('matches')
+        .update({ live_match_data: liveMatchData as any })
+        .eq('id', matchId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      console.log('User joined match successfully:', newParticipant);
+
+      // Broadcast the join event to all connected clients
+      try {
+        const { realtimeService } = await import('./realtimeService');
+        await realtimeService.broadcastPlay(matchId, {
+          playerId: userId,
+          eventType: 'join' as any,
+          eventData: {
+            displayName: displayName,
+            team: team,
+            slotId: slotId,
+          },
           team: team,
-          isRegistered: true,
-        };
-
-        liveMatchData.matchSetup.participants.push(newParticipant);
-        liveMatchData.matchSetup.playerMap[userId] = slotId;
-
-        // Update match with new participant
-        const { error: updateError } = await supabase
-          .from('matches')
-          .update({ live_match_data: liveMatchData as any })
-          .eq('id', matchId);
-
-        if (updateError) {
-          throw updateError;
-        }
-
-        console.log('User joined match successfully:', newParticipant);
+          timestamp: new Date(),
+        });
+      } catch (broadcastError) {
+        console.warn('Failed to broadcast join event:', broadcastError);
+        // Don't fail the join if broadcast fails
       }
 
       return {
-        data: { participant: existingParticipant || liveMatchData.matchSetup.participants.find((p: any) => p.userId === userId) },
+        data: { participant: newParticipant },
         error: null,
         success: true,
         timestamp: new Date().toISOString(),

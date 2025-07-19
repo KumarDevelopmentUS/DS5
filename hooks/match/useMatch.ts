@@ -180,7 +180,9 @@ export const useMatch = (
   } = useQuery<Match, Error>({
     queryKey: ['match', matchId, 'details'],
     queryFn: async () => {
+      console.log('[useMatch] Fetching match:', matchId);
       const result = await matchService.getMatch(matchId, true, includeStats);
+      console.log('[useMatch] Match fetch result:', { success: result.success, hasData: !!result.data, error: result.error });
       if (!result.success || !result.data) {
         throw new Error(result.error?.message || 'Failed to fetch match');
       }
@@ -372,9 +374,9 @@ export const useMatch = (
       setIsConnected(true);
 
       // Refresh data after reconnection
-      refetchMatch();
+      queryClient.invalidateQueries(['match', matchId]);
     },
-  }), [matchId, trackPresence, onError, refetchMatch, queryClient]);
+  }), [matchId, trackPresence, onError, queryClient]);
 
   useEffect(() => {
     if (!enableRealtime || !matchId || !user?.id || !profile) {
@@ -385,8 +387,8 @@ export const useMatch = (
       try {
         setConnectionError(null);
 
-        // Get user's team for presence tracking
-        const userParticipant = participants.find((p) => p.userId === user.id);
+        // Get user's team for presence tracking - use match data directly to avoid circular dependency
+        const userParticipant = match?.participants?.find((p) => p.userId === user.id);
 
         const unsubscribe = await realtimeService.subscribeToMatch(
           matchId,
@@ -422,7 +424,7 @@ export const useMatch = (
       }
       setIsConnected(false);
     };
-  }, [enableRealtime, matchId, user?.id, profile?.id, realtimeCallbacks]); // Only stable dependencies
+  }, [enableRealtime, matchId, user?.id, profile?.id, realtimeCallbacks]); // Removed match?.participants to avoid circular dependency
 
   // ============================================
   // DATA SYNCHRONIZATION

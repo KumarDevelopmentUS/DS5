@@ -29,14 +29,14 @@ export interface EnhancedMatchSettings {
 }
 
 // Enhanced match interface with required settings
-export interface TrackerMatch extends Omit<Match, 'settings'> {
+export interface TrackerMatch extends Omit<Match, 'settings' | 'participants'> {
   settings: EnhancedMatchSettings;
   participants: TrackerPlayer[];
   currentScore: TeamScore;
 }
 
 // Enhanced player interface for tracker
-export interface TrackerPlayer extends Player {
+export interface TrackerPlayer extends Omit<Player, 'stats'> {
   isRegistered: boolean; // Whether this is a real user or default player
   displayName: string; // The name to show in the tracker
   position: 1 | 2 | 3 | 4; // Player position (1-2 for team1, 3-4 for team2)

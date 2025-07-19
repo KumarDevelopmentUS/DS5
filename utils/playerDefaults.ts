@@ -140,6 +140,7 @@ export const convertToTrackerPlayer = (
     position,
     isRegistered: true,
     displayName,
+    stats: undefined, // Clear the PlayerMatchStats, will be set separately as LivePlayerStats
   };
 };
 
@@ -470,7 +471,7 @@ export const updateThrowingPlayerStats = (
     case 'long':
     case 'side':
     case 'height':
-      playerStats[throwType as keyof LivePlayerStats] += 1;
+      (playerStats as any)[throwType] += 1;
       playerStats.blunders += 1;
       break;
   }
@@ -524,7 +525,7 @@ export const updateDefensivePlayerStats = (
     case 'miss':
     case 'two_hands':
     case 'body':
-      playerStats[defenseType as keyof LivePlayerStats] += 1;
+      (playerStats as any)[defenseType] += 1;
       playerStats.blunders += 1;
       break;
   }

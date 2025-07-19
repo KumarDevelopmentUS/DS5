@@ -119,6 +119,7 @@ export const TYPOGRAPHY = {
   fontFamily: {
     regular: 'Inter-Regular',
     medium: 'Inter-Medium',
+    semibold: 'Inter-Medium', // Using Medium as fallback for semibold
     bold: 'Inter-Bold',
     black: 'Inter-Black',
   },
@@ -236,6 +237,7 @@ export const BORDERS = {
   xl: 16,
   xxl: 24,
   full: 9999,
+  radius: 8, // Default radius value
 };
 
 // Z-index scale for layering

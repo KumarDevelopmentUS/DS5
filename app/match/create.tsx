@@ -134,6 +134,7 @@ export default function CreateMatchScreen() {
 
         if (result.success && result.data) {
           console.log('Match created successfully, navigating to:', result.data.id);
+          console.log('Full match data:', result.data);
           // Navigate to the new tracker interface
           router.replace(`/match/${result.data.id}` as any);
         } else {
